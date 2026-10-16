@@ -45,7 +45,7 @@ describe("NoticeDecoder - Official PS-02 Notice Benchmark", () => {
     expect(deadlineEvent?.dateISO).toBe("2026-11-13");
     expect(deadlineEvent?.startTime).toBe("12:00");
     expect(deadlineEvent?.endTime).toBe("12:00");
-    expect(deadlineEvent?.venue).toBe("department office");
+    expect(deadlineEvent?.venue).toBe("Department office");
     expect(deadlineEvent?.cohort).toBe("III-year CSE");
     expect(deadlineEvent?.needsReview).toBe(false);
   });

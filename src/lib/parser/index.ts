@@ -266,3 +266,4 @@ export * from "./preprocessor";
 export * from "./dateParser";
 export * from "./timeParser";
 export * from "./noticeDecoder";
+export * from "./entityExtractor";
