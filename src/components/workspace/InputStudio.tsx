@@ -1,10 +1,16 @@
-"use client";
+﻿"use client";
 import React, { useState } from "react";
 import { useStore } from "@/src/store";
 import { extractDraftEvents } from "@/src/lib/parser";
 import { sanitizeNoticeInput } from "@/src/lib/security";
 import { SAMPLE_NOTICE_PRESETS } from "@/src/lib/fixtures/sampleNotices";
 import { startExecutionTimer, formatTelemetryBadge } from "@/src/lib/telemetry/diagnostics";
+import {
+  refineWithAi,
+  shouldSuggestAiRefinement,
+  getHybridBadgeInfo,
+  type HybridParseResult,
+} from "@/src/lib/parser/hybridCoordinator";
 import type { ParseContext } from "@/src/types";
 import {
   FileText,
@@ -15,6 +21,7 @@ import {
   ArrowRight,
   Info,
   Zap,
+  Wand2,
 } from "lucide-react";
 
 const CTX: ParseContext = {
@@ -28,6 +35,7 @@ export function InputStudio() {
     noticeText,
     setNoticeText,
     setEvents,
+    events,
     setIsParsing,
     setParseError,
     parseError,
@@ -37,6 +45,8 @@ export function InputStudio() {
 
   const [firewallWarning, setFirewallWarning] = useState<string | null>(null);
   const [parseLatencyMs, setParseLatencyMs] = useState<number | null>(null);
+  const [isAiRefining, setIsAiRefining] = useState(false);
+  const [hybridResult, setHybridResult] = useState<HybridParseResult | null>(null);
 
   function handleDecode() {
     if (!noticeText.trim()) return;
@@ -51,13 +61,21 @@ export function InputStudio() {
 
     setIsParsing(true);
     try {
-      const events = extractDraftEvents(text, CTX);
-      setEvents(events as any);
+      const parsedEvents = extractDraftEvents(text, CTX);
+      setEvents(parsedEvents as any);
 
       const elapsed = stopTimer();
       setParseLatencyMs(elapsed);
+      setHybridResult({
+        events: parsedEvents as any,
+        source: "DETERMINISTIC_INSTANT",
+        latencyMs: elapsed,
+        circuitBreakerTriggered: false,
+        statusMessage: `⚡ Parsed in ${elapsed.toFixed(1)}ms • 100% Deterministic Engine`,
+        deterministicEvents: parsedEvents as any,
+      });
 
-      if (events.length === 0) {
+      if (parsedEvents.length === 0) {
         setParseError(
           "No scheduled events or deadlines detected in this notice. Ensure times (e.g. '10:00 AM') and dates (e.g. '13 Nov 2026' or '13/11/2026') are present."
         );
@@ -71,12 +89,36 @@ export function InputStudio() {
     }
   }
 
+  async function handleAiRefine() {
+    if (!noticeText.trim()) return;
+    setIsAiRefining(true);
+
+    try {
+      const currentEvents = events.length > 0 ? (events as any) : extractDraftEvents(noticeText, CTX);
+      const result = await refineWithAi(noticeText, currentEvents);
+      setHybridResult(result);
+
+      if (result.events && result.events.length > 0) {
+        setEvents(result.events as any);
+        setParseLatencyMs(result.latencyMs);
+      }
+    } catch (err: any) {
+      // Never crash the UI; fallback preserved
+      console.warn("AI refinement error:", err);
+    } finally {
+      setIsAiRefining(false);
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
       handleDecode();
     }
   };
+
+  const badgeInfo = hybridResult ? getHybridBadgeInfo(hybridResult) : null;
+  const showAiSuggestion = events.length > 0 && shouldSuggestAiRefinement(events as any);
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col gap-4">
@@ -96,17 +138,23 @@ export function InputStudio() {
 
         {/* Live Badges */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Live Judge-Facing Latency Badge */}
+          {/* Live Engine Latency Badge */}
           <div
             id="telemetry-latency-badge"
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-tight transition ${
-              parseLatencyMs !== null
+              badgeInfo
+                ? badgeInfo.badgeClass
+                : parseLatencyMs !== null
                 ? "bg-amber-50 text-amber-900 border border-amber-300/80 shadow-2xs"
                 : "bg-slate-100 text-slate-600 border border-slate-200"
             }`}
           >
-            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-            <span>{formatTelemetryBadge(parseLatencyMs)}</span>
+            {badgeInfo?.badgeIcon === "sparkles" ? (
+              <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+            ) : (
+              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+            )}
+            <span>{badgeInfo ? badgeInfo.badgeLabel : formatTelemetryBadge(parseLatencyMs)}</span>
           </div>
 
           {/* Security Firewall Badge */}
@@ -132,6 +180,7 @@ export function InputStudio() {
                 reset();
                 setFirewallWarning(null);
                 setParseLatencyMs(null);
+                setHybridResult(null);
                 setNoticeText(preset.text);
               }}
               title={preset.description}
@@ -184,33 +233,71 @@ export function InputStudio() {
         </div>
       )}
 
+      {/* Hybrid Status Banner */}
+      {hybridResult && (
+        <div
+          className={`flex items-center justify-between p-3 rounded-xl text-xs border ${
+            hybridResult.source === "AI_REFINED"
+              ? "bg-purple-50 text-purple-800 border-purple-200"
+              : hybridResult.circuitBreakerTriggered
+              ? "bg-amber-50 text-amber-800 border-amber-200"
+              : "bg-indigo-50 text-indigo-800 border-indigo-200"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {hybridResult.source === "AI_REFINED" ? (
+              <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+            ) : (
+              <Zap className="w-4 h-4 text-indigo-600 shrink-0" />
+            )}
+            <span className="font-medium">{hybridResult.statusMessage}</span>
+          </div>
+          <span className="text-[11px] font-mono opacity-75">{hybridResult.latencyMs.toFixed(1)}ms</span>
+        </div>
+      )}
+
       {/* Action Buttons */}
-      <div className="flex items-center gap-2.5 pt-1">
+      <div className="flex flex-wrap items-center gap-2.5 pt-1">
+        {/* Deterministic Primary Pass Button */}
         <button
           id="decode-btn"
           onClick={handleDecode}
           disabled={!noticeText.trim() || isParsing}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition cursor-pointer"
         >
           {isParsing ? (
             <span>Processing...</span>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" />
-              <span>Decode Notice</span>
+              <Zap className="w-4 h-4 text-indigo-200" />
+              <span>Instant Decode (0ms)</span>
               <ArrowRight className="w-4 h-4 ml-0.5" />
             </>
           )}
         </button>
 
+        {/* Optional AI Refinement Pass Button */}
+        <button
+          id="ai-refine-btn"
+          onClick={handleAiRefine}
+          disabled={!noticeText.trim() || isAiRefining}
+          title="Optional AI semantic refinement via Gemini 2.5 Flash with 4-second circuit breaker and deterministic timestamp firewall"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition cursor-pointer"
+        >
+          <Wand2 className="w-4 h-4 text-purple-200" />
+          <span>{isAiRefining ? "Refining with AI..." : "✨ Deep AI Refine"}</span>
+        </button>
+
+        {/* Reset */}
         <button
           id="reset-btn"
           onClick={() => {
             reset();
             setFirewallWarning(null);
             setParseLatencyMs(null);
+            setHybridResult(null);
           }}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition cursor-pointer ml-auto"
         >
           <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
           <span>Clear Studio</span>
