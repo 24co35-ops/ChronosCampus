@@ -1,4 +1,4 @@
-// ─── Bulletproof Deterministic Date Parser ────────────────────────────────
+﻿// ─── Bulletproof Deterministic Date Parser ────────────────────────────────
 // Zero-hallucination date extraction with full Indian locale (DD/MM/YYYY) support,
 // leap-year calendar validation, and contextual inheritance.
 
@@ -105,12 +105,12 @@ const RE_ISO = /\b(\d{4})-(0[1-9]|1[0-2])-([0-2]\d|3[01])\b/;
 // 3. Day + Month Name + Optional Year:
 // "13 Nov 2026", "13th November, 2026", "13 Nov", "13th Nov"
 const RE_DAY_MONTH =
-  /\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?(?:,?\s*(\d{4}|\d{2}))?\b/i;
+  /\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?(?:,?\s*(\d{4}|\d{2})(?!:))?\b/i;
 
 // 4. Month Name + Day + Optional Year:
 // "Nov 13, 2026", "November 13 2026", "Nov 13"
 const RE_MONTH_DAY =
-  /\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}|\d{2}))?\b/i;
+  /\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}|\d{2})(?!:))?\b/i;
 
 // 5. Slash / Dash / Dot formatted dates:
 // "13/11/2026", "13-11-2026", "13.11.26" (interpreted as DD/MM/YYYY in Indian locale)

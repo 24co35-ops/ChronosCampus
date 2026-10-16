@@ -1,4 +1,4 @@
-// ─── Deterministic Notice Parser ─────────────────────────────────────────
+﻿// ─── Deterministic Notice Parser ─────────────────────────────────────────
 // Supports PS-02 date/time formats; no LLM involvement in time math.
 
 import { preprocessNotice } from './preprocessor';
@@ -260,3 +260,9 @@ function extractAudience(line: string): string | null {
   return m?.[0]?.trim() ?? null;
 }
 
+
+// Re-export full modular parser subcomponents
+export * from "./preprocessor";
+export * from "./dateParser";
+export * from "./timeParser";
+export * from "./noticeDecoder";
