@@ -80,3 +80,29 @@ export interface CompoundBusyBlock {
   events: DecodedEvent[];
   trappedDeadlines: DecodedEvent[];
 }
+
+/**
+ * 5. Application view modes for multi-role workflows.
+ */
+export type ViewMode = "STUDENT" | "B2B_ADMIN" | "RED_TEAM_LAB";
+
+/**
+ * 6. Actionable recommendations generated from conflict analysis.
+ */
+export interface ActionRecommendation {
+  id: string;
+  priority: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
+  title: string;
+  description: string;
+  actionType: "RESCHEDULE_EVENT" | "SHIFT_DEADLINE" | "TRANSIT_BUFFER" | "NOTIFY_FACULTY" | "SPLIT_COHORT";
+  relatedEventIds: string[];
+  suggestedPatch?: {
+    eventId: string;
+    patch: Partial<DecodedEvent>;
+  };
+  draftEmail?: {
+    recipient: string;
+    subject: string;
+    body: string;
+  };
+}
