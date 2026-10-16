@@ -1,11 +1,12 @@
 "use client";
 import React from "react";
+import { ErrorBoundary } from "@/src/components/common/ErrorBoundary";
 import { InputStudio } from "@/src/components/workspace/InputStudio";
 import { EditableGrid } from "@/src/components/workspace/EditableGrid";
 import { GanttTimeline } from "@/src/components/workspace/GanttTimeline";
 import { ClashMatrix } from "@/src/components/workspace/ClashMatrix";
 import { B2BSandbox } from "@/src/components/workspace/B2BSandbox";
-import { Calendar, Shield, Sparkles, CheckCircle2, Cpu } from "lucide-react";
+import { Calendar, Shield, Sparkles, Cpu } from "lucide-react";
 
 export default function Home() {
   return (
@@ -34,7 +35,7 @@ export default function Home() {
           <div className="hidden sm:flex items-center gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1.5 font-medium">
               <Shield className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Input Firewall Active</span>
+              <span>Crash Firewall Active</span>
             </span>
             <span className="text-slate-300">·</span>
             <span className="flex items-center gap-1.5 font-medium">
@@ -64,25 +65,28 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 1. Input Studio */}
-        <InputStudio />
+        {/* Protected Workspace guarded by ErrorBoundary */}
+        <ErrorBoundary>
+          {/* 1. Input Studio */}
+          <InputStudio />
 
-        {/* 2. Editable Grid with Undo/Redo & ICS Export */}
-        <EditableGrid />
+          {/* 2. Editable Grid with Undo/Redo & ICS Export */}
+          <EditableGrid />
 
-        {/* 3. Visual SVG Gantt Timeline */}
-        <GanttTimeline />
+          {/* 3. Visual SVG Gantt Timeline */}
+          <GanttTimeline />
 
-        {/* 4. Pairwise Clash Matrix & Recommendations */}
-        <ClashMatrix />
+          {/* 4. Pairwise Clash Matrix & Recommendations */}
+          <ClashMatrix />
 
-        {/* 5. Faculty Pre-Publish Sandbox */}
-        <B2BSandbox />
+          {/* 5. Faculty Pre-Publish Sandbox */}
+          <B2BSandbox />
+        </ErrorBoundary>
 
         {/* Footer */}
         <footer className="mt-8 pt-6 border-t border-slate-200 text-center text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-3">
           <span>ChronosCampus · PS-02 Notice Decoder & Schedule Resolver</span>
-          <span>Next.js 14+ App Router · TypeScript Strict · Tailwind CSS · Vitest</span>
+          <span>Next.js 16 App Router · TypeScript Strict · Tailwind CSS · Vitest</span>
         </footer>
       </div>
     </main>

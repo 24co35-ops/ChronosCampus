@@ -3,7 +3,8 @@ import React, { useState } from "react";
 import { useStore } from "@/src/store";
 import { extractDraftEvents } from "@/src/lib/parser";
 import { sanitizeNoticeInput } from "@/src/lib/security";
-import { SAMPLE_NOTICE_PRESETS, OFFICIAL_PS02_NOTICE } from "@/src/lib/fixtures/sampleNotices";
+import { SAMPLE_NOTICE_PRESETS } from "@/src/lib/fixtures/sampleNotices";
+import { startExecutionTimer, formatTelemetryBadge } from "@/src/lib/telemetry/diagnostics";
 import type { ParseContext } from "@/src/types";
 import {
   FileText,
@@ -13,6 +14,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Info,
+  Zap,
 } from "lucide-react";
 
 const CTX: ParseContext = {
@@ -34,10 +36,12 @@ export function InputStudio() {
   } = useStore();
 
   const [firewallWarning, setFirewallWarning] = useState<string | null>(null);
+  const [parseLatencyMs, setParseLatencyMs] = useState<number | null>(null);
 
   function handleDecode() {
     if (!noticeText.trim()) return;
 
+    const stopTimer = startExecutionTimer();
     const { text, warning } = sanitizeNoticeInput(noticeText);
     if (warning) {
       setFirewallWarning(warning);
@@ -49,6 +53,9 @@ export function InputStudio() {
     try {
       const events = extractDraftEvents(text, CTX);
       setEvents(events as any);
+
+      const elapsed = stopTimer();
+      setParseLatencyMs(elapsed);
 
       if (events.length === 0) {
         setParseError(
@@ -73,7 +80,7 @@ export function InputStudio() {
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col gap-4">
-      {/* Header and presets */}
+      {/* Header, Security Badge & Live Performance Timer Badge */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
@@ -87,10 +94,26 @@ export function InputStudio() {
           </div>
         </div>
 
-        {/* Security badge */}
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-[11px] font-medium text-emerald-800">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Security Firewall Active</span>
+        {/* Live Badges */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Live Judge-Facing Latency Badge */}
+          <div
+            id="telemetry-latency-badge"
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-tight transition ${
+              parseLatencyMs !== null
+                ? "bg-amber-50 text-amber-900 border border-amber-300/80 shadow-2xs"
+                : "bg-slate-100 text-slate-600 border border-slate-200"
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+            <span>{formatTelemetryBadge(parseLatencyMs)}</span>
+          </div>
+
+          {/* Security Firewall Badge */}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-[11px] font-medium text-emerald-800">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Firewall Active</span>
+          </div>
         </div>
       </div>
 
@@ -108,6 +131,7 @@ export function InputStudio() {
               onClick={() => {
                 reset();
                 setFirewallWarning(null);
+                setParseLatencyMs(null);
                 setNoticeText(preset.text);
               }}
               title={preset.description}
@@ -184,6 +208,7 @@ export function InputStudio() {
           onClick={() => {
             reset();
             setFirewallWarning(null);
+            setParseLatencyMs(null);
           }}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition"
         >
