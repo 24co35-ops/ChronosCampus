@@ -1,21 +1,33 @@
 // ─── Input security layer ─────────────────────────────────────────────────
-// Ponytail: no framework, plain string guards are enough for this use case.
+// Ponytail: no heavy external framework, robust deterministic guards.
 
 /** Max notice length accepted — prevents ReDoS on long inputs */
 const MAX_INPUT_BYTES = 20_000;
 
-/** Reject or truncate untrusted notice text before parsing */
+/** Reject or sanitize untrusted notice text before parsing */
 export function sanitizeNoticeInput(raw: string): { text: string; warning: string | null } {
   // Strip null bytes
-  const stripped = raw.replace(/\0/g, "");
+  let stripped = raw.replace(/\0/g, "");
+  let warning: string | null = null;
+
+  // Strip dangerous script tags and alert on HTML
+  if (/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi.test(stripped)) {
+    stripped = stripped.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+    warning = "Dangerous script tags were stripped from input.";
+  }
+
+  // Detect and neutralize CRLF injection attempts
+  if (/\r\nATTENDEE|\r\nORGANIZER|\r\nSUMMARY/i.test(stripped)) {
+    stripped = stripped.replace(/\r\n/g, "\n");
+    warning = warning ? `${warning} Calendar CRLF headers were neutralized.` : "Calendar CRLF headers were neutralized.";
+  }
 
   if (stripped.length > MAX_INPUT_BYTES) {
-    return {
-      text: stripped.slice(0, MAX_INPUT_BYTES),
-      warning: `Input truncated to ${MAX_INPUT_BYTES} characters for safety.`,
-    };
+    stripped = stripped.slice(0, MAX_INPUT_BYTES);
+    warning = `Input truncated to ${MAX_INPUT_BYTES} characters for safety.`;
   }
-  return { text: stripped, warning: null };
+
+  return { text: stripped, warning };
 }
 
 /**
@@ -60,8 +72,9 @@ export function safeRegexTest(re: RegExp, input: string, safeLen = 2000): boolea
 export function sanitizeForLlm(text: string): string {
   // Remove instruction-override patterns
   return text
+    .replace(/ignore\s+(all\s+)?prior\s+instructions?/gi, "[REDACTED]")
     .replace(/ignore\s+(all\s+)?previous\s+instructions?/gi, "[REDACTED]")
-    .replace(/system\s*:/gi, "[REDACTED]")
+    .replace(/system\s*(override|:)/gi, "[REDACTED]")
     .replace(/\[INST\]/gi, "[REDACTED]")
     .replace(/###\s*instruction/gi, "[REDACTED]");
 }

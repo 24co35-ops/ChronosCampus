@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useStore } from "@/src/store";
 import { extractDraftEvents } from "@/src/lib/parser";
 import { sanitizeNoticeInput } from "@/src/lib/security";
-import { PS02_NOTICE } from "@/src/lib/parser/sample";
+import { SAMPLE_NOTICE_PRESETS, OFFICIAL_PS02_NOTICE } from "@/src/lib/fixtures/sampleNotices";
 import type { ParseContext } from "@/src/types";
 import {
   FileText,
@@ -20,28 +20,6 @@ const CTX: ParseContext = {
   timeZone: "Asia/Kolkata",
   locale: "IN",
 };
-
-const SAMPLE_PRESETS: { label: string; text: string; desc: string }[] = [
-  {
-    label: "PS-02 Official Notice",
-    desc: "Internal Test, Deadline & Guest Lecture on Nov 13",
-    text: PS02_NOTICE,
-  },
-  {
-    label: "Midterm & Viva Overlap",
-    desc: "Simultaneous practical viva and written exam",
-    text: `Mid-term Examination in Database Systems is scheduled on 20/11/2026 from 09:30 AM to 11:30 AM in Exam Hall 3.
-Mini-Project Viva for Batch A will be conducted on 20/11/2026 from 10:30 AM to 12:30 PM in Computing Lab 1.
-Project report hardcopy hand in due on 20/11/2026 at 11:00 AM sharp at Staff Room 12.`,
-  },
-  {
-    label: "Hinglish Academic Circular",
-    desc: "Casual campus circular with mixed vernacular",
-    text: `Attention all students:
-Tomorrow 14/11/2026 at 10:00 AM there will be a campus placement assessment session in Auditorium till 12:00 noon.
-Assignment submission last date is 14/11/2026 at 11:30 AM at Department Reception.`,
-  },
-];
 
 export function InputStudio() {
   const {
@@ -104,7 +82,7 @@ export function InputStudio() {
           <div>
             <h2 className="text-base font-semibold text-slate-900">Notice Input Studio</h2>
             <p className="text-xs text-slate-500">
-              Paste unstructured university notices, circulars, or timetable announcements
+              Paste university circulars, exam schedules, or select a problem benchmark preset
             </p>
           </div>
         </div>
@@ -117,23 +95,34 @@ export function InputStudio() {
       </div>
 
       {/* Preset buttons */}
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <span className="text-xs font-medium text-slate-500 mr-1">Sample Presets:</span>
-        {SAMPLE_PRESETS.map((preset, idx) => (
-          <button
-            key={idx}
-            id={`preset-btn-${idx}`}
-            onClick={() => {
-              reset();
-              setFirewallWarning(null);
-              setNoticeText(preset.text);
-            }}
-            title={preset.desc}
-            className="text-xs px-3 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 font-medium text-slate-700 transition"
-          >
-            {preset.label}
-          </button>
-        ))}
+      <div className="flex flex-col gap-1.5 pt-1">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-slate-600">Test Presets & Benchmarks:</span>
+          <span className="text-[11px] text-slate-400">Click any preset to populate studio</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {SAMPLE_NOTICE_PRESETS.map((preset, idx) => (
+            <button
+              key={preset.id}
+              id={`preset-btn-${idx}`}
+              onClick={() => {
+                reset();
+                setFirewallWarning(null);
+                setNoticeText(preset.text);
+              }}
+              title={preset.description}
+              className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition ${
+                preset.id === "ps02-official"
+                  ? "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+                  : preset.id === "adversarial-security"
+                  ? "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+                  : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+              }`}
+            >
+              {preset.title}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Textarea */}
@@ -146,12 +135,12 @@ export function InputStudio() {
             if (parseError) setParseError(null);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Paste or type circular text here (e.g. 'Internal Test 2 is scheduled for 13 Nov 2026 from 10:00 AM to 11:30 AM in Room 204...')"
+          placeholder="Paste or type circular text here (e.g. 'All III-year CSE students: Internal Test 2 will be held on 13 Nov 2026 from 10:00 AM to 11:30 AM in Room 204...')"
           rows={6}
           className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-4 text-sm font-mono text-slate-800 leading-relaxed placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100 transition resize-y"
         />
         <div className="flex items-center justify-between mt-1 text-[11px] text-slate-400 px-1">
-          <span>Tip: Press Ctrl + Enter to decode immediately</span>
+          <span>Tip: Press Ctrl + Enter to decode notice immediately</span>
           <span>{noticeText.length} characters</span>
         </div>
       </div>
