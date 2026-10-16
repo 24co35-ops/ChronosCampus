@@ -1,6 +1,7 @@
 // ─── Deterministic Notice Parser ─────────────────────────────────────────
 // Supports PS-02 date/time formats; no LLM involvement in time math.
 
+import { preprocessNotice } from './preprocessor';
 import type { DraftEvent, EventType, FieldStatus, ParseContext } from "@/src/types";
 
 // ── Hinglish / domain lexicon ─────────────────────────────────────────────
@@ -121,7 +122,8 @@ function nextId(): string {
  * Deterministic: given the same text + context, returns the same result.
  */
 export function extractDraftEvents(text: string, ctx: ParseContext): DraftEvent[] {
-  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const preprocessed = preprocessNotice(text);
+  const lines = preprocessed.clauses.length > 0 ? preprocessed.clauses.map((c) => c.text) : preprocessed.normalizedText.split(/\n+/).map((l) => l.trim()).filter(Boolean);
   const events: DraftEvent[] = [];
 
   for (const line of lines) {
@@ -257,3 +259,4 @@ function extractAudience(line: string): string | null {
   const m = line.match(/\b(I{1,3}[\s-]?year|[1-9](?:st|nd|rd|th)[\s-]?year|[A-Z]{2,5}\s*\d?\s*(?:students|batch)?)\b/i);
   return m?.[0]?.trim() ?? null;
 }
+
