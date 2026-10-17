@@ -95,3 +95,4 @@ Never expose provider keys through a `NEXT_PUBLIC_` variable, commit `.env.local
 
 ## Product honesty
 This pack is a build specification, not a claim that every listed feature has already been implemented. OCR, live calendar subscriptions, institutional ERP integrations, automated WhatsApp ingestion, and Google Calendar OAuth are **future/stretch scope** unless the team builds and tests them. The core judged workflow takes priority.
+# ChronosCampus
