@@ -1,9 +1,17 @@
-﻿// 📄 ChronosCampus Multi-Modal File Ingestion & OCR Engine 📄
+// 📄 ChronosCampus Multi-Modal File Ingestion & OCR Engine 📄
 // Handles drag-and-drop ingestion of plain text (.txt, .md), scanned notice photos
-// (.png, .jpg, .webp), and PDF circulars with client-side OCR and automated typo repair.
+// (.png, .jpg, .webp), and PDF circulars with client-side OCR, automated typo repair,
+// and enterprise-grade file upload security (5MB limit, Magic Bytes check, 5-page PDF cap).
 
 import { fixOcrArtifacts } from "./preprocessor";
 import { OFFICIAL_PS02_NOTICE } from "../fixtures/sampleNotices";
+import { recordSecurityThreat } from "../security/xssGuard";
+
+/** Strict 5 MB maximum file upload size limit */
+export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB (5,242,880 bytes)
+
+/** Hard ceiling on PDF page parsing to prevent browser memory bombs */
+export const MAX_PDF_PAGES = 5;
 
 export type SupportedFileType = "text" | "image" | "pdf";
 
@@ -22,6 +30,151 @@ export interface IngestedFileResult {
   previewUrl?: string;
   ocrConfidence?: number;
   ocrFixesCount?: number;
+  pagesExtracted?: number;
+  pagesCapped?: boolean;
+  magicBytesVerified?: boolean;
+}
+
+export interface MagicByteCheckResult {
+  isValid: boolean;
+  format: "png" | "jpeg" | "pdf" | "text" | "unknown";
+  magicHex: string;
+  error?: string;
+}
+
+/**
+ * Formats a slice of Uint8Array as space-separated uppercase hex pairs (e.g. "89 50 4E 47").
+ */
+export function toHexByteString(bytes: Uint8Array, len = 4): string {
+  return Array.from(bytes.slice(0, len))
+    .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
+    .join(" ");
+}
+
+/**
+ * 1. Enforces strict 5 MB maximum file size limit.
+ */
+export function validateFileSize(sizeBytes: number): void {
+  if (sizeBytes > MAX_FILE_SIZE_BYTES) {
+    const mb = (sizeBytes / (1024 * 1024)).toFixed(2);
+    throw new Error(
+      `File size (${mb} MB) exceeds the strict 5 MB limit. Please upload a smaller circular or compressed image.`
+    );
+  }
+}
+
+/**
+ * 2. Validates file Magic Bytes (file signatures) to prevent disguised executable or script uploads:
+ * - PNG: 89 50 4E 47
+ * - JPEG: FF D8 FF
+ * - PDF: 25 50 44 46 (%PDF)
+ */
+export function validateFileMagicBytes(
+  header: Uint8Array,
+  expectedType: SupportedFileType
+): MagicByteCheckResult {
+  const hex = toHexByteString(header, 4);
+
+  // Check for dangerous binary executable signatures (e.g. renamed .exe / .elf)
+  const isExe = header[0] === 0x4d && header[1] === 0x5a; // MZ (Windows PE/EXE/DLL)
+  const isElf = header[0] === 0x7f && header[1] === 0x45 && header[2] === 0x4c && header[3] === 0x46; // .ELF (Linux)
+
+  if (isExe || isElf) {
+    const threatName = isExe ? "Windows PE Executable (MZ)" : "Linux ELF Executable";
+    const errorMsg = `Security Alert: Disguised binary executable detected (${threatName}, magic: ${hex}). Upload rejected to protect the system.`;
+    recordSecurityThreat({
+      threatCategory: "XSS_DOM",
+      details: `Disguised executable upload attempt: ${threatName} (${hex})`,
+      originalSnippet: hex,
+    });
+    return {
+      isValid: false,
+      format: "unknown",
+      magicHex: hex,
+      error: errorMsg,
+    };
+  }
+
+  // 1. PDF Verification: 25 50 44 46 (%PDF)
+  if (expectedType === "pdf") {
+    const isPdf =
+      header[0] === 0x25 &&
+      header[1] === 0x50 &&
+      header[2] === 0x44 &&
+      header[3] === 0x46;
+
+    if (!isPdf) {
+      return {
+        isValid: false,
+        format: "unknown",
+        magicHex: hex,
+        error: `Security Alert: Invalid PDF file signature. Expected magic bytes "25 50 44 46" (%PDF), but found "${hex}". Upload rejected.`,
+      };
+    }
+
+    return { isValid: true, format: "pdf", magicHex: hex };
+  }
+
+  // 2. Image Verification: PNG (89 50 4E 47), JPEG (FF D8 FF), WebP (RIFF....WEBP)
+  if (expectedType === "image") {
+    const isPng =
+      header[0] === 0x89 &&
+      header[1] === 0x50 &&
+      header[2] === 0x4e &&
+      header[3] === 0x47;
+
+    const isJpeg =
+      header[0] === 0xff &&
+      header[1] === 0xd8 &&
+      header[2] === 0xff;
+
+    const isWebp =
+      header[0] === 0x52 &&
+      header[1] === 0x49 &&
+      header[2] === 0x46 &&
+      header[3] === 0x46; // RIFF
+
+    if (isPng) return { isValid: true, format: "png", magicHex: hex };
+    if (isJpeg) return { isValid: true, format: "jpeg", magicHex: hex };
+    if (isWebp) return { isValid: true, format: "png", magicHex: hex };
+
+    return {
+      isValid: false,
+      format: "unknown",
+      magicHex: hex,
+      error: `Security Alert: Invalid image file signature. Expected PNG (89 50 4E 47) or JPEG (FF D8 FF) magic bytes, but found "${hex}". Upload rejected.`,
+    };
+  }
+
+  // 3. Text Verification: Ensure not raw binary with null bytes
+  if (expectedType === "text") {
+    for (let i = 0; i < Math.min(header.length, 32); i++) {
+      if (header[i] === 0x00) {
+        return {
+          isValid: false,
+          format: "unknown",
+          magicHex: hex,
+          error: `Security Alert: Binary null bytes detected in text document. Upload rejected.`,
+        };
+      }
+    }
+    return { isValid: true, format: "text", magicHex: hex };
+  }
+
+  return { isValid: true, format: "unknown", magicHex: hex };
+}
+
+/**
+ * Safely reads the first N bytes of a File object across browser and node environments.
+ */
+export async function readFileHeaderBytes(file: File, bytesCount = 16): Promise<Uint8Array> {
+  if (typeof file.slice === "function") {
+    const slice = file.slice(0, bytesCount);
+    const buf = await slice.arrayBuffer();
+    return new Uint8Array(buf);
+  }
+  const full = await file.arrayBuffer();
+  return new Uint8Array(full.slice(0, bytesCount));
 }
 
 /**
@@ -71,17 +224,18 @@ export async function extractTextFromPlainTextFile(
 }
 
 /**
- * 2. Client-side PDF Text Stream Extractor
- * Extracts readable string literals from PDF object blocks (BT...ET and Tj/TJ operators)
- * without requiring heavy external node dependencies.
+ * 2. Client-side PDF Text Stream Extractor (with 5-page ceiling)
+ * Extracts readable string literals from PDF object blocks (BT...ET and Tj/TJ operators),
+ * capped strictly to the first 5 pages to prevent memory bombs.
  */
-export function extractTextFromPdfBuffer(
+export function extractTextFromPdfBufferDetailed(
   buffer: ArrayBuffer,
-  onProgress?: (p: IngestionProgress) => void
-): string {
+  onProgress?: (p: IngestionProgress) => void,
+  maxPages = MAX_PDF_PAGES
+): { text: string; pagesExtracted: number; pagesCapped: boolean } {
   onProgress?.({
     stage: "pdf_parsing",
-    percentage: 40,
+    percentage: 30,
     statusMessage: "Scanning PDF text streams...",
   });
 
@@ -89,13 +243,35 @@ export function extractTextFromPdfBuffer(
   const decoder = new TextDecoder("latin1");
   const rawContent = decoder.decode(bytes);
 
+  // Detect and count /Type /Page objects (distinct from /Pages catalog)
+  const pageMatches = [...rawContent.matchAll(/\/Type\s*\/Page\b/g)];
+  const totalPages = pageMatches.length;
+  let targetContent = rawContent;
+  let pagesCapped = false;
+  let pagesExtracted = Math.max(1, totalPages);
+
+  // 3. Cap PDF parsing to first 5 pages
+  if (totalPages > maxPages) {
+    pagesCapped = true;
+    pagesExtracted = maxPages;
+    const sixthPage = pageMatches[maxPages];
+    if (sixthPage && sixthPage.index !== undefined) {
+      targetContent = rawContent.slice(0, sixthPage.index);
+    }
+    onProgress?.({
+      stage: "pdf_parsing",
+      percentage: 50,
+      statusMessage: `PDF circular contains ${totalPages} pages; capped parsing to first ${maxPages} pages to protect browser memory.`,
+    });
+  }
+
   const textChunks: string[] = [];
 
-  // Match /BT ... /ET text blocks
+  // Match /BT ... /ET text blocks in the permitted page content
   const btEtRegex = /BT[\s\S]*?ET/g;
   let match: RegExpExecArray | null;
 
-  while ((match = btEtRegex.exec(rawContent)) !== null) {
+  while ((match = btEtRegex.exec(targetContent)) !== null) {
     const block = match[0];
 
     // Single Tj strings: (All III-year CSE students:) Tj
@@ -124,7 +300,7 @@ export function extractTextFromPdfBuffer(
   if (textChunks.length === 0) {
     const rawParenRegex = /\(([A-Za-z0-9\s:,\-\.\/]{5,})\)/g;
     let rawMatch: RegExpExecArray | null;
-    while ((rawMatch = rawParenRegex.exec(rawContent)) !== null) {
+    while ((rawMatch = rawParenRegex.exec(targetContent)) !== null) {
       textChunks.push(unescapePdfString(rawMatch[1]!).trim());
     }
   }
@@ -134,10 +310,23 @@ export function extractTextFromPdfBuffer(
   onProgress?.({
     stage: "complete",
     percentage: 100,
-    statusMessage: `PDF parsed (${result.length} characters found).`,
+    statusMessage: pagesCapped
+      ? `PDF parsed (first ${maxPages} pages, ${result.length} characters found).`
+      : `PDF parsed (${result.length} characters found).`,
   });
 
-  return result;
+  return { text: result, pagesExtracted, pagesCapped };
+}
+
+/**
+ * Standard PDF text extractor (delegates to detailed extractor).
+ */
+export function extractTextFromPdfBuffer(
+  buffer: ArrayBuffer,
+  onProgress?: (p: IngestionProgress) => void,
+  maxPages = MAX_PDF_PAGES
+): string {
+  return extractTextFromPdfBufferDetailed(buffer, onProgress, maxPages).text;
 }
 
 function unescapePdfString(str: string): string {
@@ -207,12 +396,15 @@ export async function extractTextFromImage(
 }
 
 /**
- * 4. High-Level Universal File Ingestion
+ * 4. High-Level Universal File Ingestion with Enterprise Upload Security
  */
 export async function ingestNoticeFile(
   file: File,
   onProgress?: (p: IngestionProgress) => void
 ): Promise<IngestedFileResult> {
+  // 1. Enforce strict 5 MB maximum file size limit
+  validateFileSize(file.size);
+
   const fileType = determineFileType(file);
   if (!fileType) {
     throw new Error(
@@ -220,9 +412,18 @@ export async function ingestNoticeFile(
     );
   }
 
+  // 2. Validate file Magic Bytes (prevent disguised .exe or .html uploads)
+  const header = await readFileHeaderBytes(file, 16);
+  const magicCheck = validateFileMagicBytes(header, fileType);
+  if (!magicCheck.isValid) {
+    throw new Error(magicCheck.error || "File signature validation failed.");
+  }
+
   let rawText = "";
   let ocrConfidence: number | undefined;
   let previewUrl: string | undefined;
+  let pagesExtracted: number | undefined;
+  let pagesCapped: boolean | undefined;
 
   if (fileType === "text") {
     rawText = await extractTextFromPlainTextFile(file, onProgress);
@@ -233,7 +434,10 @@ export async function ingestNoticeFile(
       statusMessage: "Reading PDF circular buffer...",
     });
     const buffer = await file.arrayBuffer();
-    rawText = extractTextFromPdfBuffer(buffer, onProgress);
+    const pdfResult = extractTextFromPdfBufferDetailed(buffer, onProgress, MAX_PDF_PAGES);
+    rawText = pdfResult.text;
+    pagesExtracted = pdfResult.pagesExtracted;
+    pagesCapped = pdfResult.pagesCapped;
 
     // If PDF was a scanned image with no text streams
     if (!rawText || rawText.trim().length < 15) {
@@ -266,6 +470,9 @@ export async function ingestNoticeFile(
     previewUrl,
     ocrConfidence,
     ocrFixesCount,
+    pagesExtracted,
+    pagesCapped,
+    magicBytesVerified: true,
   };
 }
 
@@ -375,5 +582,8 @@ export async function simulateScannedNoticeDemo(
     previewUrl: generateSimulatedNoticeBoardImage(),
     ocrConfidence: 96,
     ocrFixesCount,
+    pagesExtracted: 1,
+    pagesCapped: false,
+    magicBytesVerified: true,
   };
 }

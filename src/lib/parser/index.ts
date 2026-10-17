@@ -2,6 +2,7 @@
 // Supports PS-02 date/time formats; no LLM involvement in time math.
 
 import { preprocessNotice } from './preprocessor';
+import { extractCleanTitle, extractVenue } from './entityExtractor';
 import type { DraftEvent, EventType, FieldStatus, ParseContext } from "@/src/types";
 
 // ── Hinglish / domain lexicon ─────────────────────────────────────────────
@@ -204,9 +205,16 @@ function parseEventFromLine(line: string, ctx: ParseContext): DraftEvent | null 
   const type = classifyEventType(line);
   const title = extractTitle(line, type);
 
-  // ── Venue (naive: look for "in <place>" or "at <place>") ──
-  const venueMatch = line.match(/\b(?:in|at)\s+([A-Z][^,.]+?)(?:\.|,|$)/);
-  const venue = venueMatch?.[1]?.trim() ?? null;
+  // ── Venue ──
+  let venue: string | null = null;
+  try {
+    const v = extractVenue(line);
+    if (v && v !== "TBD") venue = v;
+  } catch {}
+  if (!venue) {
+    const venueMatch = line.match(/\b(?:in|at)\s+([A-Z][^,.]+?)(?:\.|,|$)/);
+    venue = venueMatch?.[1]?.trim() ?? null;
+  }
   const venueStatus: FieldStatus = venue ? "matched" : "missing";
 
   if (!dateISO && !startTime) return null;
@@ -237,6 +245,11 @@ function parseEventFromLine(line: string, ctx: ParseContext): DraftEvent | null 
 }
 
 function extractTitle(line: string, type: EventType): string {
+  try {
+    const clean = extractCleanTitle(line, (type === "Other" ? "Lecture" : type) as any);
+    if (clean && clean !== `${type} Event`) return clean;
+  } catch {}
+
   // Remove date/time tokens and trim to get a short title candidate
   const cleaned = line
     .replace(RE_DATE_NAMED, "")

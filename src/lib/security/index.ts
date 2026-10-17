@@ -1,30 +1,43 @@
-// ─── Input security layer ─────────────────────────────────────────────────
-// Ponytail: no heavy external framework, robust deterministic guards.
+// ─── Input Security & Neutralization Layer ─────────────────────────────────
+// Ponytail: 100% deterministic, zero external vulnerability risk.
 
-/** Max notice length accepted — prevents ReDoS on long inputs */
-const MAX_INPUT_BYTES = 20_000;
+export * from "./icsSanitizer";
+export * from "./xssGuard";
+export * from "./resourceGuard";
+export * from "./promptFirewall";
+export * from "./rateLimiter";
+
+import { sanitizeIcsFieldValue, secureCalendarText } from "./icsSanitizer";
+import { stripXssAndHtml } from "./xssGuard";
+import { enforcePayloadLimit, MAX_PAYLOAD_CHARS, MAX_SAFE_REGEX_LEN } from "./resourceGuard";
+
+/** Max notice length accepted — hard payload safety ceiling (25,000 characters) */
+const MAX_INPUT_BYTES = MAX_PAYLOAD_CHARS;
 
 /** Reject or sanitize untrusted notice text before parsing */
 export function sanitizeNoticeInput(raw: string): { text: string; warning: string | null } {
-  // Strip null bytes
-  let stripped = raw.replace(/\0/g, "");
-  let warning: string | null = null;
+  if (!raw) return { text: "", warning: null };
 
-  // Strip dangerous script tags and alert on HTML
-  if (/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi.test(stripped)) {
-    stripped = stripped.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
-    warning = "Dangerous script tags were stripped from input.";
+  // 1. Enforce payload cap (25,000 chars)
+  const payloadGuard = enforcePayloadLimit(raw, MAX_PAYLOAD_CHARS);
+  let stripped = payloadGuard.text.replace(/\0/g, "");
+  let warning: string | null = payloadGuard.warning;
+
+  // 2. Strict XSS and HTML stripping
+  const xssResult = stripXssAndHtml(stripped);
+  if (xssResult.hasXss) {
+    stripped = xssResult.sanitized;
+    warning = warning
+      ? `${warning} ${xssResult.badge || "Malicious HTML or script tokens were neutralized."}`
+      : (xssResult.badge || "Malicious HTML or script tokens were neutralized.");
   }
 
-  // Detect and neutralize CRLF injection attempts
-  if (/\r\nATTENDEE|\r\nORGANIZER|\r\nSUMMARY/i.test(stripped)) {
+  // 3. Detect and neutralize CRLF injection attempts
+  if (/\r\nATTENDEE|\r\nORGANIZER|\r\nSUMMARY|\r\nBEGIN:VALARM|\r\nATTACH/i.test(stripped)) {
     stripped = stripped.replace(/\r\n/g, "\n");
-    warning = warning ? `${warning} Calendar CRLF headers were neutralized.` : "Calendar CRLF headers were neutralized.";
-  }
-
-  if (stripped.length > MAX_INPUT_BYTES) {
-    stripped = stripped.slice(0, MAX_INPUT_BYTES);
-    warning = `Input truncated to ${MAX_INPUT_BYTES} characters for safety.`;
+    warning = warning
+      ? `${warning} Calendar CRLF directives were neutralized.`
+      : "Calendar CRLF headers were neutralized.";
   }
 
   return { text: stripped, warning };
@@ -33,9 +46,9 @@ export function sanitizeNoticeInput(raw: string): { text: string; warning: strin
 /**
  * Render notice text as plain text — never as HTML.
  * Use this before inserting any extracted string into the DOM via dangerouslySetInnerHTML.
- * (Prefer React text nodes; call only when you must produce a string.)
  */
 export function escapeHtml(text: string): string {
+  if (!text) return "";
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -46,14 +59,11 @@ export function escapeHtml(text: string): string {
 
 /**
  * Sanitize a string destined for an iCalendar text property.
- * RFC 5545 §3.3.11: escape backslash, semicolon, comma, newline.
+ * Strictly adheres to RFC 5545 §3.3.11, disarms line breakouts,
+ * strips control characters, and neutralizes spreadsheet formula injection.
  */
 export function escapeIcsText(text: string): string {
-  return text
-    .replace(/\\/g, "\\\\")
-    .replace(/;/g, "\\;")
-    .replace(/,/g, "\\,")
-    .replace(/\r\n|\r|\n/g, "\\n");
+  return secureCalendarText(text);
 }
 
 /**
@@ -67,10 +77,10 @@ export function safeRegexTest(re: RegExp, input: string, safeLen = 2000): boolea
 
 /**
  * Strip prompt-injection candidates from text before sending to an LLM.
- * Strips common injection patterns; not a cryptographic guarantee.
+ * Strips common instruction-override patterns deterministically.
  */
 export function sanitizeForLlm(text: string): string {
-  // Remove instruction-override patterns
+  if (!text) return "";
   return text
     .replace(/ignore\s+(all\s+)?prior\s+instructions?/gi, "[REDACTED]")
     .replace(/ignore\s+(all\s+)?previous\s+instructions?/gi, "[REDACTED]")

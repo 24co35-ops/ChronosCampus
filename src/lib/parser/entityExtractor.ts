@@ -8,9 +8,18 @@ import { preprocessNotice, type EventClause } from "./preprocessor";
 import { parseNoticeDatesWithContext, type ParsedDateResult } from "./dateParser";
 import { extractTimeRange, type ParsedTimeRange } from "./timeParser";
 
+import {
+  enforcePayloadLimit,
+  enforceEventLimit,
+  MAX_EVENTS_PER_NOTICE,
+  MAX_PAYLOAD_CHARS,
+  recordResourceWarning,
+} from "@/src/lib/security/resourceGuard";
+
 export interface ParseNoticeOptions {
   referenceYear?: number;
   defaultCohort?: string;
+  onWarning?: (warning: string) => void;
 }
 
 // ── 1. Event Type Classification ─────────────────────────────────────────────
@@ -61,16 +70,16 @@ export function normalizeVenueCasing(raw: string): string {
  * "at Auditorium", "in Lab 3") or trailing comma-separated location phrases (", Seminar Hall").
  */
 export function extractVenue(clause: string): string {
-  // 1. Locations following "to the <office/lab/desk>"
-  const mTo = clause.match(/\bto\s+(?:the\s+)?([A-Za-z0-9\s]+?(?:office|lab|department|desk|counter|reception))\b/i);
+  // 1. Locations following "to the <office/lab/desk>" (bounded non-greedy scan)
+  const mTo = clause.match(/\bto\s+(?:the\s+)?([A-Za-z0-9\s]{1,60}?(?:office|lab|department|desk|counter|reception))\b/i);
   if (mTo) return normalizeVenueCasing(mTo[1]!.trim());
 
   // 2. Locations following spatial prepositions: "in Room 204", "at Auditorium", "in Lab 3"
-  const mInAt = clause.match(/\b(?:in|at)\s+([A-Za-z0-9\s-]+?(?:Hall|Room\s*\d+[A-Z]?|Auditorium|Audi\s*\d*|Lab(?:\s*\d+)?|Complex|Building|Center|Centre))\b/i);
+  const mInAt = clause.match(/\b(?:in|at)\s+([A-Za-z0-9\s-]{1,60}?(?:Hall|Room\s*\d+[A-Z]?|Auditorium|Audi\s*\d*|Lab(?:\s*\d+)?|Complex|Building|Center|Centre))\b/i);
   if (mInAt) return normalizeVenueCasing(mInAt[1]!.trim());
 
   // 3. Trailing comma-separated location phrases: ", Seminar Hall", ", Room 204"
-  const mTrailing = clause.match(/,\s*([A-Za-z0-9\s]+?(?:Hall|Auditorium|Room\s*\d+[A-Z]?|Lab(?:\s*\d+)?|Office))\s*\.?$/i);
+  const mTrailing = clause.match(/,\s*([A-Za-z0-9\s]{1,50}?(?:Hall|Auditorium|Room\s*\d+[A-Z]?|Lab(?:\s*\d+)?|Office))\s*\.?$/i);
   if (mTrailing) return normalizeVenueCasing(mTrailing[1]!.trim());
 
   // 4. Standalone venue keywords anywhere in clause
@@ -140,8 +149,8 @@ export function extractCleanTitle(clauseText: string, type: EventCategory): stri
  * Detects cohort patterns like "All III-year CSE students" and returns "III-year CSE".
  */
 export function extractTargetCohort(text: string): string {
-  // Pattern 1: "All III-year CSE students" or "III-year CSE"
-  const m1 = text.match(/\b(?:All\s+)?(I{1,4}|[1-4](?:st|nd|rd|th))\s*[-–\s]?\s*(?:year|sem|semester)?\s*([A-Za-z]{2,8})(?:\s+students)?(?:\s*:)?\b/i);
+  // Pattern 1: "All III-year CSE students" or "III-year CSE" (disjoint whitespace and hyphen quantifiers)
+  const m1 = text.match(/\b(?:All\s+)?(I{1,4}|[1-4](?:st|nd|rd|th))(?:\s*[-–]\s*|\s+)(?:year|sem|semester)?\s*([A-Za-z]{2,8})(?:\s+students)?(?:\s*:)?\b/i);
   if (m1) {
     const year = m1[1]!.replace(/–/g, "-");
     const dept = m1[2]!.toUpperCase();
@@ -204,11 +213,18 @@ export function parseNoticeText(
 ): DecodedEvent[] {
   if (!rawText || !rawText.trim()) return [];
 
+  // Enforce 25,000 character hard payload limit
+  const payloadGuard = enforcePayloadLimit(rawText, MAX_PAYLOAD_CHARS);
+  const safeText = payloadGuard.text;
+  if (payloadGuard.warning && options.onWarning) {
+    options.onWarning(payloadGuard.warning);
+  }
+
   const referenceYear = options.referenceYear ?? 2026;
-  const globalCohort = options.defaultCohort ?? extractTargetCohort(rawText);
+  const globalCohort = options.defaultCohort ?? extractTargetCohort(safeText);
 
   // 1. Preprocessing & Clause Segmentation
-  const preprocessed = preprocessNotice(rawText);
+  const preprocessed = preprocessNotice(safeText);
   const clauses = preprocessed.clauses;
   if (clauses.length === 0) return [];
 
@@ -217,8 +233,15 @@ export function parseNoticeText(
   const dateResults = parseNoticeDatesWithContext(clauseTexts, referenceYear);
 
   const events: DecodedEvent[] = [];
+  let eventsCapped = false;
 
   for (let i = 0; i < clauses.length; i++) {
+    // Hard exit when 50 events cap reached
+    if (events.length >= MAX_EVENTS_PER_NOTICE) {
+      eventsCapped = true;
+      break;
+    }
+
     const clause = clauses[i]!;
     const dateRes = dateResults[i] ?? null;
 
@@ -279,6 +302,20 @@ export function parseNoticeText(
         confidence: Math.min(event.confidence, 70),
         needsReview: true,
       });
+    }
+  }
+
+  // Enforce 50 maximum events per notice and emit warning if capped
+  if (eventsCapped) {
+    const warning = `Event limit enforced: Notice generated more than ${MAX_EVENTS_PER_NOTICE} events. Truncated to the safety ceiling of ${MAX_EVENTS_PER_NOTICE} events per notice.`;
+    recordResourceWarning(warning);
+    if (options.onWarning) {
+      options.onWarning(warning);
+    }
+  } else {
+    const eventGuard = enforceEventLimit(events, MAX_EVENTS_PER_NOTICE);
+    if (eventGuard.warning && options.onWarning) {
+      options.onWarning(eventGuard.warning);
     }
   }
 

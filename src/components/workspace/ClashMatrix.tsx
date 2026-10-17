@@ -2,6 +2,9 @@
 import React, { useState } from "react";
 import { useStore } from "@/src/store";
 import type { ClashResult, Recommendation, DeadlineFeasibility } from "@/src/types";
+import { ActionRecommenderPanel } from "./ActionRecommenderPanel";
+import { EscalationModal } from "./EscalationModal";
+import { useNoticeStore } from "@/src/store/useNoticeStore";
 import {
   AlertTriangle,
   AlertOctagon,
@@ -51,6 +54,8 @@ const KIND_CONFIG: Record<
 
 export function ClashMatrix() {
   const { clashes, events, recommendations, feasibility } = useStore();
+  const openEscalation = useNoticeStore((s) => s.openEscalation);
+  const pairwiseClashes = useNoticeStore((s) => s.pairwiseClashes);
   const [copiedDraftIdx, setCopiedDraftIdx] = useState<number | null>(null);
 
   if (clashes.length === 0 && recommendations.length === 0) return null;
@@ -126,6 +131,26 @@ export function ClashMatrix() {
                     </span>
                   </div>
                 )}
+
+                {c.kind !== "none" && (
+                  <div className="mt-3 pt-2.5 border-t border-black/5 flex items-center justify-between">
+                    <button
+                      id={`draft-escalation-btn-${i}`}
+                      onClick={() => {
+                        const match = pairwiseClashes.find(
+                          (pc) =>
+                            (pc.eventA === c.eventA && pc.eventB === c.eventB) ||
+                            (pc.eventA === c.eventB && pc.eventB === c.eventA)
+                        );
+                        openEscalation(match?.id ?? `clash-${c.eventA}-${c.eventB}`);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 shadow-2xs transition cursor-pointer"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-indigo-200" />
+                      <span>✉ Draft Coordinator Message</span>
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -155,80 +180,8 @@ export function ClashMatrix() {
         </div>
       )}
 
-      {/* Actionable Recommendations & Email Draft Generator */}
-      {recommendations.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold text-slate-900">Recommended Resolution Actions</h2>
-              <p className="text-xs text-slate-500">
-                Automated recommendations and pre-composed email drafts for administration/professors
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            {recommendations.map((rec, idx) => (
-              <div key={idx} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                    <Info className="w-3.5 h-3.5 text-indigo-500" />
-                    {rec.title}
-                  </span>
-                  <span
-                    className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
-                      rec.priority === "high"
-                        ? "bg-rose-100 text-rose-700"
-                        : rec.priority === "medium"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {rec.priority} Priority
-                  </span>
-                </div>
-
-                <p className="text-xs text-slate-600 leading-relaxed">{rec.detail}</p>
-
-                {/* Pre-drafted resolution email */}
-                {rec.draftMessage && (
-                  <div className="mt-2 bg-white rounded-xl border border-slate-200 p-3 flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1">
-                        <Mail className="w-3 h-3 text-slate-500" />
-                        Suggested Email Draft to Faculty / Admin
-                      </span>
-                      <button
-                        id={`copy-draft-btn-${idx}`}
-                        onClick={() => handleCopyDraft(rec.draftMessage!, idx)}
-                        className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition"
-                      >
-                        {copiedDraftIdx === idx ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-600" />
-                            <span className="text-emerald-700 font-semibold">Copied!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3" />
-                            <span>Copy Email</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <pre className="text-[11px] font-mono text-slate-600 bg-slate-50 p-3 rounded-lg whitespace-pre-wrap leading-relaxed border border-slate-100 overflow-x-auto">
-                      {rec.draftMessage}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <ActionRecommenderPanel />
+      <EscalationModal />
     </section>
   );
 }

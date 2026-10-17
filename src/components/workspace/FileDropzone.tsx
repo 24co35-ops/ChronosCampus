@@ -136,7 +136,7 @@ export function FileDropzone() {
   };
 
   return (
-    <section className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col gap-4">
+    <section className="bg-white rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] p-5 flex flex-col gap-4">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -145,14 +145,14 @@ export function FileDropzone() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
                 Multi-Modal Ingestion & Scanned Notice OCR
               </h2>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
                 Client-Side OCR
               </span>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Drag &amp; drop circular PDFs, notice board photos, WhatsApp screenshots, or plain text
             </p>
           </div>
@@ -163,7 +163,7 @@ export function FileDropzone() {
           id="simulate-scan-btn"
           onClick={handleSimulateDemo}
           disabled={isProcessing}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold hover:from-violet-700 hover:to-indigo-700 disabled:opacity-40 shadow-xs transition cursor-pointer"
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 text-xs font-medium disabled:opacity-40 shadow-xs transition cursor-pointer"
         >
           <Camera className="w-3.5 h-3.5 text-violet-200" />
           <span>Simulate Scanned Notice Photo</span>
@@ -187,10 +187,10 @@ export function FileDropzone() {
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`relative border-2 border-dashed rounded-2xl p-6 sm:p-8 flex flex-col items-center justify-center gap-3 text-center transition cursor-pointer ${
+          className={`relative border border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl p-6 sm:p-8 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col items-center justify-center gap-3 text-center transition cursor-pointer ${
             isDragging
               ? "border-violet-500 bg-violet-50/50 scale-[0.99]"
-              : "border-slate-200 hover:border-violet-300 hover:bg-slate-50/50"
+              : "border-zinc-200 dark:border-zinc-800 hover:border-violet-300 hover:bg-slate-50/50"
           }`}
         >
           <div className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center shadow-xs">
@@ -205,22 +205,22 @@ export function FileDropzone() {
             <p className="text-sm font-semibold text-slate-800">
               {isDragging ? "Drop your notice file here" : "Click to browse or drag and drop your notice"}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Supports university circulars, physical notice board photos, WhatsApp screenshots, or PDF files
             </p>
           </div>
 
           {/* Supported Format Pills */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-medium text-slate-600">
-              <FileText className="w-3 h-3 text-slate-500" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
+              <FileText className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
               <span>.txt / .md</span>
             </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-medium text-slate-600">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
               <FileCheck className="w-3 h-3 text-rose-500" />
               <span>.pdf Circulars</span>
             </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-medium text-slate-600">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-[11px] font-medium text-zinc-600 dark:text-zinc-400">
               <ImageIcon className="w-3 h-3 text-emerald-500" />
               <span>.png / .jpg / .webp Photos</span>
             </span>
@@ -228,12 +228,12 @@ export function FileDropzone() {
         </div>
       ) : (
         /* Ingested File Card */
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 flex flex-col sm:flex-row items-center gap-4">
+        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-slate-50/70 p-4 flex flex-col sm:flex-row items-center gap-4">
           {/* Thumbnail preview */}
           {ingestedResult.previewUrl ? (
             <div
               onClick={() => setShowFullPreview(true)}
-              className="relative w-28 h-20 rounded-xl overflow-hidden border border-slate-200 shrink-0 shadow-xs cursor-pointer group bg-amber-900/10"
+              className="relative w-28 h-20 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shrink-0 shadow-xs cursor-pointer group bg-amber-900/10"
             >
               <img
                 src={ingestedResult.previewUrl}
@@ -257,7 +257,7 @@ export function FileDropzone() {
           {/* Metadata */}
           <div className="flex-1 min-w-0 flex flex-col gap-1 w-full sm:w-auto">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold text-slate-900 truncate">
+              <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                 {ingestedResult.fileName}
               </span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 uppercase">
@@ -270,7 +270,7 @@ export function FileDropzone() {
               )}
             </div>
 
-            <p className="text-xs text-slate-500 truncate">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
               {(ingestedResult.fileSizeBytes / 1024).toFixed(1)} KB • {ingestedResult.cleanedText.length} characters extracted
             </p>
 
@@ -288,16 +288,16 @@ export function FileDropzone() {
             {ingestedResult.previewUrl && (
               <button
                 onClick={() => setShowFullPreview(true)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-white transition cursor-pointer"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-slate-700 hover:bg-white transition cursor-pointer"
               >
-                <Eye className="w-3.5 h-3.5 text-slate-500" />
+                <Eye className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                 <span>View Photo</span>
               </button>
             )}
 
             <button
               onClick={handleClear}
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-600 hover:bg-white transition cursor-pointer"
+              className="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 text-slate-400 hover:text-zinc-600 dark:text-zinc-400 hover:bg-white transition cursor-pointer"
               title="Remove file"
             >
               <X className="w-4 h-4" />
@@ -339,20 +339,20 @@ export function FileDropzone() {
       {showFullPreview && ingestedResult?.previewUrl && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-4 shadow-2xl flex flex-col gap-3 relative animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center gap-2">
                 <Camera className="w-4 h-4 text-violet-600" />
                 <span className="text-sm font-semibold text-slate-800">{ingestedResult.fileName}</span>
               </div>
               <button
                 onClick={() => setShowFullPreview(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-500 transition cursor-pointer"
+                className="p-1 rounded-lg hover:bg-slate-100 text-zinc-500 dark:text-zinc-400 transition cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900/5 max-h-[70vh] flex items-center justify-center">
+            <div className="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-slate-900/5 max-h-[70vh] flex items-center justify-center">
               <img
                 src={ingestedResult.previewUrl}
                 alt="Scanned College Notice"
@@ -360,7 +360,7 @@ export function FileDropzone() {
               />
             </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+            <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 pt-1">
               <span>Simulated High-Resolution Physical Notice Board Scan</span>
               <button
                 onClick={() => setShowFullPreview(false)}

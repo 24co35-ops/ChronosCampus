@@ -1,5 +1,10 @@
+import { decodeNotice } from "@/src/lib/parser/noticeDecoder";
+import { OFFICIAL_PS02_NOTICE } from "@/src/lib/fixtures/sampleNotices";
+import { broadcastScheduleUpdate, subscribeToBroadcast, type SyncMessage } from "@/src/lib/sync/broadcastChannel";
 import { evaluateAllPairs, toMinutes as timeToMinutes, fromMinutes as timeFromMinutes } from "@/src/lib/clash/pairwiseEngine";
 import { computeCompoundBusyBlocks, generateCompoundBusyInsights } from "@/src/lib/clash/compoundAnalyzer";
+import { generateRecommendations } from "@/src/lib/clash/actionRecommender";
+import type { RescheduleSuggestion } from "@/src/lib/clash/actionRecommender";
 import { create } from "zustand";
 import type {
   DecodedEvent,
@@ -34,6 +39,7 @@ export interface EngineResult {
   busyBlocks: CompoundBusyBlock[];
   recommendations: ActionRecommendation[];
   compoundInsights: CompoundBusyInsight[];
+  rescheduleMap: Map<string, RescheduleSuggestion>;
 }
 
 export function runClashEngine(events: DecodedEvent[]): EngineResult {
@@ -201,94 +207,47 @@ export function runClashEngine(events: DecodedEvent[]): EngineResult {
     }
   }
 
-  // 2. Compound Busy Blocks via Sweep-Line solver & True Last Free Window analysis
+  // 2. Compound Busy Blocks via O(N log N) Sweep-Line & True Last Free Window
   const busyBlocks = computeCompoundBusyBlocks(validDated);
   const compoundInsights = generateCompoundBusyInsights(validDated);
 
-  // 3. Automated Resolution Recommendations
-  const recommendations: ActionRecommendation[] = [];
+  // 3. Delegated to actionRecommender — PS-02 prioritized action cards + reschedule finder
+  const { recommendations, rescheduleMap } = generateRecommendations(
+    validDated,
+    pairwiseClashes,
+    compoundInsights
+  );
 
-  for (const clash of pairwiseClashes) {
-    if (!clash.hasClash) continue;
-    const a = byId.get(clash.eventA);
-    const b = byId.get(clash.eventB);
-    if (!a || !b) continue;
-
-    if (clash.clashType === "HARD_OVERLAP") {
-      const first = toMinutes(a.startTime) <= toMinutes(b.startTime) ? a : b;
-      const second = first.id === a.id ? b : a;
-
-      const secondDuration =
-        toMinutes(second.endTime || second.startTime) - toMinutes(second.startTime);
-      
-      // Calculate transit buffer if venues differ
-      const hasDistinctVenues =
-        first.venue &&
-        second.venue &&
-        first.venue !== second.venue &&
-        first.venue !== "TBD" &&
-        second.venue !== "TBD";
-      const transitBuffer = hasDistinctVenues ? 15 : 0;
-
-      const suggestedStartMins = toMinutes(first.endTime) + transitBuffer;
-      const suggestedStart = fromMinutes(suggestedStartMins);
-      const suggestedEnd = fromMinutes(suggestedStartMins + secondDuration);
-
-      recommendations.push({
-        id: `rec-reschedule-${second.id}`,
-        priority: "CRITICAL",
-        title: `Reschedule "${second.title}"`,
-        description: `Direct ${clash.overlapMinutes}-min overlap with "${first.title}". Shift "${second.title}" to ${suggestedStart}–${suggestedEnd} after "${first.title}" concludes${hasDistinctVenues ? " (includes 15-min transit buffer)" : ""}.`,
-        actionType: "RESCHEDULE_EVENT",
-        relatedEventIds: [first.id, second.id],
-        suggestedPatch: {
-          eventId: second.id,
-          patch: { startTime: suggestedStart, endTime: suggestedEnd },
-        },
-        draftEmail: {
-          recipient: "cse-hod@university.edu",
-          subject: `Schedule Conflict Resolution Request: ${first.title} and ${second.title}`,
-          body: `Dear Faculty / Administration,\n\nI noticed an active schedule clash on ${first.dateISO} between "${first.title}" (${first.startTime}–${first.endTime}) and "${second.title}" (${second.startTime}–${second.endTime}) overlapping for ${clash.overlapMinutes} minutes.\n\nCould we reschedule "${second.title}" to start at ${suggestedStart}?\n\nSincerely,\nStudent Representative`,
-        },
-      });
-    } else if (clash.clashType === "DEADLINE_CONTAINMENT") {
-      const deadline = a.type === "Deadline" ? a : b;
-      const ranged = a.type === "Deadline" ? b : a;
-      const suggestedPostpone = ranged.endTime;
-
-      recommendations.push({
-        id: `rec-deadline-${deadline.id}`,
-        priority: "CRITICAL",
-        title: `Extend Deadline "${deadline.title}"`,
-        description: `Submission time (${deadline.startTime}) falls during "${ranged.title}" (${ranged.startTime}–${ranged.endTime}). Postpone deadline to ${suggestedPostpone} after session dismisses.`,
-        actionType: "SHIFT_DEADLINE",
-        relatedEventIds: [deadline.id, ranged.id],
-        suggestedPatch: {
-          eventId: deadline.id,
-          patch: { startTime: suggestedPostpone, endTime: suggestedPostpone },
-        },
-        draftEmail: {
-          recipient: "course-instructor@university.edu",
-          subject: `Deadline Extension Request: ${deadline.title}`,
-          body: `Dear Professor,\n\nThe deadline for "${deadline.title}" is currently set at ${deadline.startTime}, which directly coincides with "${ranged.title}".\n\nCould the submission deadline be extended to ${suggestedPostpone} to allow in-person hand-in after class?\n\nThank you for your consideration.`,
-        },
-      });
-    } else if (clash.clashType === "TRANSIT_RISK") {
-      recommendations.push({
-        id: `rec-transit-${a.id}-${b.id}`,
-        priority: "HIGH",
-        title: `Buffer Transit between ${a.venue} & ${b.venue}`,
-        description: `Zero-minute passing window between different buildings. Recommend a 15-minute inter-campus buffer.`,
-        actionType: "TRANSIT_BUFFER",
-        relatedEventIds: [a.id, b.id],
-      });
-    }
-  }
-
-  return { pairwiseClashes, busyBlocks, recommendations, compoundInsights };
+  return { pairwiseClashes, busyBlocks, recommendations, compoundInsights, rescheduleMap };
 }
 
+
+type AppStoreSyncCallback = (events: DecodedEvent[]) => void;
+let appStoreSyncCallback: AppStoreSyncCallback | null = null;
+
+export function registerAppStoreSync(cb: AppStoreSyncCallback) {
+  appStoreSyncCallback = cb;
+}
+
+function syncBackToAppStore(events: DecodedEvent[]) {
+  if (appStoreSyncCallback) {
+    try {
+      appStoreSyncCallback(events);
+    } catch {
+      // Ignore sync exceptions
+    }
+  }
+}
 // ── Zustand Store Contract ─────────────────────────────────────────────────
+
+
+export interface LiveSyncToast {
+  id: string;
+  title: string;
+  message: string;
+  sender: string;
+  timestamp: number;
+}
 
 export interface NoticeStoreState {
   rawNoticeText: string;
@@ -301,9 +260,20 @@ export interface NoticeStoreState {
   busyBlocks: CompoundBusyBlock[];
   compoundInsights: CompoundBusyInsight[];
   recommendations: ActionRecommendation[];
+  rescheduleMap: Map<string, RescheduleSuggestion>;
+  previewRescheduleId: string | null;
   selectedCohort: string;
   viewMode: ViewMode;
   activeHighlightedEventId: string | null;
+  activeEscalationClashId: string | null;
+  liveSyncToast: LiveSyncToast | null;
+  setLiveSyncToast: (toast: LiveSyncToast | null) => void;
+  dismissLiveSyncToast: () => void;
+  broadcastRescheduledNotice: (customEvents?: DecodedEvent[]) => void;
+  broadcastResetNotice: () => void;
+  initLiveSyncListener: () => () => void;
+  openEscalation: (clashId: string) => void;
+  closeEscalation: () => void;
 
   // Actions
   setRawNoticeText: (text: string) => void;
@@ -317,6 +287,8 @@ export interface NoticeStoreState {
   addManualEvent: (event?: Partial<DecodedEvent>) => void;
   deleteEvent: (id: string) => void;
   autoResolveClash: (clashId: string) => void;
+  previewReschedule: (eventId: string) => void;
+  revertReschedule: (eventId: string) => void;
   undo: () => void;
   redo: () => void;
   setSelectedCohort: (cohort: string) => void;
@@ -324,6 +296,9 @@ export interface NoticeStoreState {
   setActiveHighlightedEventId: (id: string | null) => void;
   recomputeEngine: () => void;
   reset: () => void;
+  theme: "light" | "dark";
+  toggleTheme: () => void;
+  setTheme: (theme: "light" | "dark") => void;
 }
 
 export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
@@ -337,9 +312,102 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
   busyBlocks: [],
   compoundInsights: [],
   recommendations: [],
+  rescheduleMap: new Map(),
+  previewRescheduleId: null,
   selectedCohort: "All",
   viewMode: "STUDENT",
   activeHighlightedEventId: null,
+  activeEscalationClashId: null,
+  liveSyncToast: null,
+  theme: "light",
+  toggleTheme: () => {
+    const next = get().theme === "dark" ? "light" : "dark";
+    if (typeof document !== "undefined") {
+      if (next === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      try {
+        localStorage.setItem("notice_decoder_theme", next);
+      } catch {}
+    }
+    set({ theme: next });
+  },
+  setTheme: (theme) => {
+    if (typeof document !== "undefined") {
+      if (theme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      try {
+        localStorage.setItem("notice_decoder_theme", theme);
+      } catch {}
+    }
+    set({ theme });
+  },
+
+  setLiveSyncToast: (toast) => set({ liveSyncToast: toast }),
+  dismissLiveSyncToast: () => set({ liveSyncToast: null }),
+
+  openEscalation: (clashId) => set({ activeEscalationClashId: clashId }),
+  closeEscalation: () => set({ activeEscalationClashId: null }),
+
+  broadcastRescheduledNotice: (customEvents) => {
+    const { events } = get();
+    const baseEvents = events.length >= 2 ? events : decodeNotice(OFFICIAL_PS02_NOTICE);
+
+    const targetEvents: DecodedEvent[] =
+      customEvents && customEvents.length > 0
+        ? customEvents
+        : baseEvents.map((e) => {
+            if (e.title.toLowerCase().includes("lecture") || e.type === "Lecture") {
+              return {
+                ...e,
+                startTime: "12:15",
+                endTime: "13:45",
+              };
+            }
+            return e;
+          });
+
+    get().setEvents(targetEvents);
+
+    broadcastScheduleUpdate(targetEvents, {
+      title: "🔔 Live Department Update Received: Clash Resolved!",
+      message: "Department Exam Cell auto-rescheduled Guest Lecture to 12:15 PM – 100% clash-free schedule.",
+      source: "B2B_ADMIN",
+      type: "AUTO_RESCHEDULE",
+    });
+  },
+
+  broadcastResetNotice: () => {
+    const clashingEvents: DecodedEvent[] = decodeNotice(OFFICIAL_PS02_NOTICE);
+    get().setEvents(clashingEvents);
+
+    broadcastScheduleUpdate(clashingEvents, {
+      title: "⚠️ Circular Reset: Original Department Notice Loaded",
+      message: "Notice restored to original 11:00 AM lecture timing (2 clashes active).",
+      source: "B2B_ADMIN",
+      type: "RESET_NOTICE",
+    });
+  },
+
+  initLiveSyncListener: () => {
+    return subscribeToBroadcast((msg) => {
+      get().setEvents(msg.events);
+      set({
+        liveSyncToast: {
+          id: msg.id,
+          title: msg.title,
+          message: msg.message,
+          sender: msg.source === "B2B_ADMIN" ? "Faculty Exam Cell (B2B Admin)" : msg.source,
+          timestamp: msg.timestamp,
+        },
+      });
+    });
+  },
 
   setRawNoticeText: (text) => set({ rawNoticeText: text }),
 
@@ -369,6 +437,7 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
       return patched;
     });
 
+    syncBackToAppStore(updated);
     const engine = runClashEngine(updated);
     set({
       events: updated,
@@ -394,6 +463,7 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
       return merged;
     });
 
+    syncBackToAppStore(updated);
     const engine = runClashEngine(updated);
     set({
       events: updated,
@@ -425,6 +495,7 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
     };
 
     const updated = [...events, newEvent];
+    syncBackToAppStore(updated);
     const engine = runClashEngine(updated);
     set({
       events: updated,
@@ -439,6 +510,7 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
   deleteEvent: (id) => {
     const { events, history } = get();
     const updated = events.filter((e) => e.id !== id);
+    syncBackToAppStore(updated);
     const engine = runClashEngine(updated);
     set({
       events: updated,
@@ -455,14 +527,16 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
     const clash = pairwiseClashes.find((c) => c.id === clashId);
     if (!clash || !clash.hasClash) return;
 
-    // Check if we have a direct recommendation with a suggested patch
-    const rec = recommendations.find((r) =>
-      r.relatedEventIds.includes(clash.eventA) && r.relatedEventIds.includes(clash.eventB)
+    // Find rec that provides a suggestedPatch directly for one of the events in this clash
+    const rec = recommendations.find(
+      (r) =>
+        r.suggestedPatch != null &&
+        (r.suggestedPatch.eventId === clash.eventA || r.suggestedPatch.eventId === clash.eventB)
     );
 
     let updated = [...events];
 
-    if (rec?.suggestedPatch) {
+        if (rec?.suggestedPatch) {
       updated = updated.map((e) =>
         e.id === rec.suggestedPatch!.eventId
           ? { ...e, ...rec.suggestedPatch!.patch }
@@ -507,6 +581,7 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
       }
     }
 
+    syncBackToAppStore(updated);
     const engine = runClashEngine(updated);
     set({
       events: updated,
@@ -555,6 +630,44 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
   },
 
   setSelectedCohort: (cohort) => set({ selectedCohort: cohort }),
+  previewReschedule: (eventId) => {
+    const { rescheduleMap, events, history } = get();
+    const suggestion = rescheduleMap.get(eventId);
+    if (!suggestion) return;
+
+    const updated = events.map((e) =>
+      e.id === eventId
+        ? { ...e, startTime: suggestion.proposedStart, endTime: suggestion.proposedEnd }
+        : e
+    );
+    const engine = runClashEngine(updated);
+    set({
+      events: updated,
+      previewRescheduleId: eventId,
+      history: { past: [...history.past.slice(-49), events], future: [] },
+      ...engine,
+    });
+  },
+
+  revertReschedule: (eventId) => {
+    const { rescheduleMap, events, history } = get();
+    const suggestion = rescheduleMap.get(eventId);
+    if (!suggestion) return;
+
+    const updated = events.map((e) =>
+      e.id === eventId
+        ? { ...e, startTime: suggestion.originalStart, endTime: suggestion.originalEnd }
+        : e
+    );
+    const engine = runClashEngine(updated);
+    set({
+      events: updated,
+      previewRescheduleId: null,
+      history: { past: [...history.past.slice(-49), events], future: [] },
+      ...engine,
+    });
+  },
+
 
   setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -575,5 +688,8 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
       busyBlocks: [],
       recommendations: [],
       activeHighlightedEventId: null,
+  activeEscalationClashId: null,
+  openEscalation: (clashId) => set({ activeEscalationClashId: clashId }),
+  closeEscalation: () => set({ activeEscalationClashId: null }),
     }),
 }));

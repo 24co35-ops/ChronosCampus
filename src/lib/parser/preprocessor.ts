@@ -17,6 +17,8 @@ export interface PreprocessResult {
     unicodeNormalized: boolean;
     ocrFixesCount: number;
     hinglishFixesCount: number;
+    xssStripped?: boolean;
+    securityBadge?: string | null;
   };
 }
 
@@ -125,29 +127,29 @@ export function normalizeCampusHinglish(text: string): { text: string; count: nu
   }
 
   // "(\d+) baje" -> "$1"
-  const bajeMatches = result.match(/\b(\d{1,2}(?::\d{2})?(?:\s*[ap]m)?)\s*baje\b/gi);
+  const bajeMatches = result.match(/\b(\d{1,2}(?::\d{2})?(?:\s+[ap]m)?)\s*baje\b/gi);
   if (bajeMatches) {
     count += bajeMatches.length;
-    result = result.replace(/\b(\d{1,2}(?::\d{2})?(?:\s*[ap]m)?)\s*baje\b/gi, "$1");
+    result = result.replace(/\b(\d{1,2}(?::\d{2})?(?:\s+[ap]m)?)\s*baje\b/gi, "$1");
   }
 
   // "se" between times -> "to" (e.g., "10:00 AM se 11:30 AM" -> "10:00 AM to 11:30 AM")
   const seMatches = result.match(
-    /(\d{1,2}(?::\d{2})?(?:\s*[ap]m)?)\s+se\s+(\d{1,2}(?::\d{2})?(?:\s*[ap]m)?)/gi
+    /(\d{1,2}(?::\d{2})?(?:\s+[ap]m)?)\s+se\s+(\d{1,2}(?::\d{2})?(?:\s+[ap]m)?)/gi
   );
   if (seMatches) {
     count += seMatches.length;
     result = result.replace(
-      /(\d{1,2}(?::\d{2})?(?:\s*[ap]m)?)\s+se\s+(\d{1,2}(?::\d{2})?(?:\s*[ap]m)?)/gi,
+      /(\d{1,2}(?::\d{2})?(?:\s+[ap]m)?)\s+se\s+(\d{1,2}(?::\d{2})?(?:\s+[ap]m)?)/gi,
       "$1 to $2"
     );
   }
 
   // "tak" after time -> "" (e.g. "11:30 AM tak" -> "11:30 AM")
-  const takMatches = result.match(/(\d{1,2}(?::\d{2})?(?:\s*(?:[ap]m|noon|pm))?)\s+tak\b/gi);
+  const takMatches = result.match(/(\d{1,2}(?::\d{2})?(?:\s+(?:[ap]m|noon|pm))?)\s+tak\b/gi);
   if (takMatches) {
     count += takMatches.length;
-    result = result.replace(/(\d{1,2}(?::\d{2})?(?:\s*(?:[ap]m|noon|pm))?)\s+tak\b/gi, "$1");
+    result = result.replace(/(\d{1,2}(?::\d{2})?(?:\s+(?:[ap]m|noon|pm))?)\s+tak\b/gi, "$1");
   }
 
   return { text: result, count };
@@ -199,10 +201,10 @@ export function segmentEventClauses(rawText: string): EventClause[] {
   }
 
   // 3. Match sentence boundaries:
-  // - Period followed by whitespace or end
-  // - Semicolon or newlines
-  // - Bullet numbered lists (e.g. "1. ", "2) ")
-  const splitRegex = /(?:\.|\;|\n+)(?:\s+|$)|(?:\n\s*\d+[\.\)]\s*)/g;
+  // - Period or semicolon followed by whitespace or end of string
+  // - Newlines (line breaks)
+  // - Bullet numbered lists (e.g. "\n1. ", "\n2) ")
+  const splitRegex = /(?:\.|\;)(?:\s+|$)|(?:\r?\n+)|(?:\r?\n\s*\d+[\.\)]\s*)/g;
 
   const clauses: EventClause[] = [];
   let lastIndex = 0;
@@ -246,8 +248,13 @@ export function segmentEventClauses(rawText: string): EventClause[] {
 
 // ── 5. Full Pipeline Pre-Processor ─────────────────────────────────────────
 
+import { stripXssAndHtml } from "@/src/lib/security/xssGuard";
+import { enforcePayloadLimit } from "@/src/lib/security/resourceGuard";
+
 export function preprocessNotice(rawText: string): PreprocessResult {
-  const unicodeNorm = normalizeUnicode(rawText);
+  const payloadGuard = enforcePayloadLimit(rawText);
+  const xssResult = stripXssAndHtml(payloadGuard.text);
+  const unicodeNorm = normalizeUnicode(xssResult.sanitized);
   const unicodeChanged = unicodeNorm !== rawText;
 
   const ocrResult = fixOcrArtifacts(unicodeNorm);
@@ -256,13 +263,15 @@ export function preprocessNotice(rawText: string): PreprocessResult {
   const clauses = segmentEventClauses(hinglishResult.text);
 
   return {
-    rawText,
+    rawText: payloadGuard.text,
     normalizedText: hinglishResult.text,
     clauses,
     appliedFixes: {
       unicodeNormalized: unicodeChanged,
       ocrFixesCount: ocrResult.count,
       hinglishFixesCount: hinglishResult.count,
+      xssStripped: xssResult.hasXss,
+      securityBadge: xssResult.badge || payloadGuard.warning,
     },
   };
 }

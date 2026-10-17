@@ -1,0 +1,24 @@
+{
+  "name": "ChronosCampus Notice Decoder",
+  "short_name": "NoticeDecoder",
+  "description": "Deterministic notice parser and academic schedule conflict engine for Indian universities",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "scope": "/",
+  "categories": [
+    "education",
+    "productivity",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-﻿// ⚖️ ChronosCampus Deterministic Pairwise Conflict Engine ⚖️
+// ⚖️ ChronosCampus Deterministic Pairwise Conflict Engine ⚖️
 // Mathematical collision audit implementing exact rules from the PS-02 Challenge:
 // 1. Convert startTime and endTime to minutes from midnight (0 <= t <= 1440).
 // 2. Overnight / Invalid time guard (endTime < startTime).
@@ -10,6 +10,7 @@
 // 5. Rule C: Simultaneous physical deadlines in distinct venues.
 
 import type { DecodedEvent, PairwiseClashResult, OverlapWindow } from "@/src/types/notice";
+import { evaluateTransitRisk, formatTransitRiskAsPairwiseClash } from "./transitEngine";
 
 /**
  * 1. Converts 24-hour HH:mm time string to minutes from midnight (0 <= t <= 1440).
@@ -145,27 +146,10 @@ export function evaluatePairwiseClash(
       };
     }
 
-    // Zero-minute boundary with distinct physical venues (Transit Risk)
-    if (
-      (aEnd === bStart || bEnd === aStart) &&
-      a.venue &&
-      b.venue &&
-      a.venue !== b.venue &&
-      a.venue !== "TBD" &&
-      b.venue !== "TBD"
-    ) {
-      const transitTime = aEnd === bStart ? a.endTime : b.endTime;
-      return {
-        id: `clash-${a.id}-${b.id}`,
-        eventA: a.id,
-        eventB: b.id,
-        hasClash: true,
-        clashType: "TRANSIT_RISK",
-        overlapMinutes: 0,
-        overlapWindow: { start: transitTime, end: transitTime },
-        explanation: `Warning. Zero-minute transit gap at ${format12Hour(transitTime)} between "${a.title}" (${a.venue}) and "${b.title}" (${b.venue}).`,
-        severity: "WARNING",
-      };
+    // Transit Risk: delegate to transitEngine (0 <= gap <= 10 mins, distinct physical venues)
+    const _transitRisk = evaluateTransitRisk(a, b);
+    if (_transitRisk) {
+      return formatTransitRiskAsPairwiseClash(_transitRisk, `clash-${a.id}-${b.id}`);
     }
 
     // No overlap

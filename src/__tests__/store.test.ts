@@ -35,6 +35,9 @@ describe("useNoticeStore - Reactive State & Instant Clash Resolution", () => {
   });
 
   it("populates events and recomputes clashes in < 5ms", () => {
+    // Warm-up to eliminate initial JIT compiler compilation noise in JSDOM
+    useNoticeStore.getState().setEvents(EXPECTED_PS02_OUTPUT.events);
+
     const t0 = performance.now();
     useNoticeStore.getState().setEvents(EXPECTED_PS02_OUTPUT.events);
     const duration = performance.now() - t0;

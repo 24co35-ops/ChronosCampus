@@ -15,6 +15,10 @@ import { extractDateFromText } from "@/src/lib/parser/dateParser";
 import { extractTimeRange } from "@/src/lib/parser/timeParser";
 import { decodedEventSchema } from "@/src/lib/validation/schemas";
 import { logDiagnostic } from "@/src/lib/telemetry/diagnostics";
+import {
+  buildGuardedAiPrompt,
+  validateAiEventsProvenance,
+} from "@/src/lib/security/promptFirewall";
 import type { DecodedEvent, EventCategory, SourceSpan } from "@/src/types/notice";
 
 
@@ -88,28 +92,29 @@ export async function POST(req: NextRequest): Promise<NextResponse<AiRefinementR
       });
     }
 
-    // 3. Construct Gemini Structured JSON Request
+    // 3. Construct Gemini Structured JSON Request with Prompt Firewall
     const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const prompt = `You are a zero-hallucination university academic schedule entity extractor.
-Analyze the following Indian campus circular and extract discrete scheduled events (Tests, Deadlines, Lectures).
-Extract the EXACT verbatim raw date string (e.g. "13 Nov 2026", "13/11/2026", "13 Nov") and EXACT verbatim raw time string (e.g. "10:00 AM to 11:30 AM", "by 12:00 noon", "2 PM").
-Do NOT calculate or invent timestamps yourself; our deterministic time engine validates your strings.
+    const {
+      systemInstruction,
+      userPrompt,
+      hasInjection,
+      detectedPatterns,
+    } = buildGuardedAiPrompt(rawText);
 
-Notice text:
-"""
-${rawText}
-"""`;
+    if (hasInjection) {
+      logDiagnostic(
+        "warn",
+        "PromptFirewall",
+        `Adversarial injection neutralized in incoming notice: ${detectedPatterns.join(", ")}`
+      );
+    }
 
     const requestPayload = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [{ role: "user", parts: [{ text: userPrompt }] }],
       systemInstruction: {
-        parts: [
-          {
-            text: "Extract all academic events (Tests, Deadlines, Lectures). Always preserve exact verbatim raw date and raw time strings from the text.",
-          },
-        ],
+        parts: [{ text: systemInstruction }],
       },
       generationConfig: {
         responseMimeType: "application/json",
@@ -128,6 +133,7 @@ ${rawText}
                   rawTime: { type: "STRING" },
                   venue: { type: "STRING" },
                   cohort: { type: "STRING" },
+                  rawSentence: { type: "STRING" },
                 },
                 required: ["title", "type", "rawDate", "rawTime"],
               },
@@ -227,9 +233,9 @@ ${rawText}
       });
     }
 
-    // ── 5. Zero-Hallucination Timestamp Firewall ─────────────────────────────
+    // ── 5. Zero-Hallucination Timestamp & Provenance Firewall ───────────────
     // Pass every AI-extracted raw string through our deterministic date & time parsers.
-    const validatedEvents: DecodedEvent[] = [];
+    const candidateEvents: DecodedEvent[] = [];
 
     for (let idx = 0; idx < aiEvents.length; idx++) {
       const item = aiEvents[idx]!;
@@ -253,10 +259,18 @@ ${rawText}
       const venueVal = normalizeVenueCasing(item.venue || fallbackEvents[idx]?.venue || "TBD");
       const cohortVal = item.cohort?.trim() || parsedJson.cohort?.trim() || defaultCohort;
 
-      const sourceSpan: SourceSpan = fallbackEvents[idx]?.sourceSpan || {
-        start: 0,
-        end: rawText.length,
-        rawSentence: `${item.title} on ${item.rawDate} at ${item.rawTime}`,
+      const sentenceFromItem = (item as any).rawSentence?.trim();
+      const rawSentence =
+        sentenceFromItem && rawText.includes(sentenceFromItem)
+          ? sentenceFromItem
+          : fallbackEvents[idx]?.sourceSpan?.rawSentence ||
+            `${item.title} on ${item.rawDate} at ${item.rawTime}`;
+
+      const matchIdx = rawText.indexOf(rawSentence);
+      const sourceSpan: SourceSpan = {
+        start: matchIdx >= 0 ? matchIdx : 0,
+        end: matchIdx >= 0 ? matchIdx + rawSentence.length : rawText.length,
+        rawSentence,
       };
 
       const event: DecodedEvent = {
@@ -274,26 +288,36 @@ ${rawText}
         sourceSpan,
       };
 
-      const schemaCheck = decodedEventSchema.safeParse(event);
-      if (schemaCheck.success) {
-        validatedEvents.push(schemaCheck.data);
-      } else {
-        validatedEvents.push({
-          ...event,
-          confidence: 70,
-          needsReview: true,
-        });
-      }
+      candidateEvents.push(event);
     }
+
+    // Verify verbatim provenance and discard any hallucinated or injected events
+    const { validEvents, discardedEvents } = validateAiEventsProvenance(
+      candidateEvents,
+      rawText
+    );
+
+    if (discardedEvents.length > 0) {
+      logDiagnostic(
+        "warn",
+        "PromptFirewall",
+        `Discarded ${discardedEvents.length} hallucinated/injected events lacking provenance in original notice text.`
+      );
+    }
+
+    // If all events were hallucinated or discarded, safely fall back to deterministic events
+    const finalEvents = validEvents.length > 0 ? validEvents : fallbackEvents;
 
     return NextResponse.json({
       success: true,
-      fallbackUsed: false,
-      source: "AI_REFINED",
+      fallbackUsed: validEvents.length === 0,
+      source: validEvents.length > 0 ? "AI_REFINED" : "AI_FALLBACK_DETERMINISTIC",
       circuitBreakerTriggered: false,
       reason: "SUCCESS",
-      message: "Semantic refinement successfully completed via Gemini 2.5 Flash + Deterministic Time Firewall.",
-      events: validatedEvents,
+      message: validEvents.length > 0
+        ? "Semantic refinement successfully completed via Gemini 2.5 Flash + Deterministic Time & Provenance Firewall."
+        : "All AI candidate events failed source provenance verification; served 100% deterministic offline extraction.",
+      events: finalEvents,
       latencyMs: Date.now() - startTime,
     });
   } catch (err: any) {

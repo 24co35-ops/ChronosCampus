@@ -142,6 +142,8 @@ export const decodedEventSchema = decodedEventBaseSchema
     }
   );
 
+export const DecodedEventSchema = decodedEventSchema;
+
 // ── Pairwise Clash Result Schema ──────────────────────────────────────────
 
 export const clashTypeSchema = z.enum([

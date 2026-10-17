@@ -71,17 +71,17 @@ export function parseSingleTime(
 
 // ── Regular Expressions ──────────────────────────────────────────────────────
 
-// Deadline keyword patterns
+// Deadline keyword patterns (safe bounded scan to prevent ReDoS)
 const RE_DEADLINE =
-  /\b(?:must\s+be\s+submitted\s+(?:to\s+[^,\.\n]+?\s+)?by|latest\s+by|due\s+(?:at|by|on)|submit\s+(?:by|before)|submission\s+(?:due\s+at|by|on)|before|by|up\s+to)\s+(12(?::00)?\s*(?:noon|midnight)|(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?|\d{2}:\d{2}))\b/i;
+  /\b(?:must\s+be\s+submitted\s+(?:to\s+[^\r\n,.;]{1,50}\s+)?by|latest\s+by|due\s+(?:at|by|on)|submit\s+(?:by|before)|submission\s+(?:due\s+at|by|on)|before|by|up\s+to)\s+(12(?::00)?\s*(?:noon|midnight)|(?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?|\d{2}:\d{2}))\b/i;
 
 // Explicit range: "from 10:00 AM to 11:30 AM", "10:00 - 11:30 AM", "14:00 to 15:30"
 const RE_RANGE =
-  /(?:from\s+)?(\d{1,2}(?::\d{2})?)\s*(am|pm)?\s*(?:[--]|to)\s*(\d{1,2}(?::\d{2})?)\s*(am|pm)?\b/i;
+  /(?:from\s+)?(\d{1,2}(?::\d{2})?)\s*(am|pm)?\s*(?:[-–—]|to)\s*(\d{1,2}(?::\d{2})?)\s*(am|pm)?\b/i;
 
 // Single time point: "at 10:00 AM", "at 2 PM", "at 14:00"
 const RE_SINGLE_TIME =
-  /\b(?:at|from|starting\s+at)?\s*(\d{1,2}(?::\d{2})?)\s*(am|pm|noon|midnight)\b|\b([01]\d|2[0-3]):([0-5]\d)\b/i;
+  /\b(?:(?:at|from|starting\s+at)\s+)?(\d{1,2}(?::\d{2})?)\s*(am|pm|noon|midnight)\b|\b([01]\d|2[0-3]):([0-5]\d)\b/i;
 
 // ── Core Time Range & Deadline Extractor ─────────────────────────────────────
 
