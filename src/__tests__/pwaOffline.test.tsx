@@ -39,7 +39,7 @@ describe("PWA Manifest & Mobile Readiness", () => {
     const swPath = path.resolve(process.cwd(), "public/sw.js");
     expect(fs.existsSync(swPath)).toBe(true);
     const swCode = fs.readFileSync(swPath, "utf-8");
-    expect(swCode).toContain("chronoscampus-cache-v1");
+    expect(swCode).toContain("chronoscampus-cache-v2");
     expect(swCode).toContain("addEventListener('fetch'");
     expect(swCode).toContain("addEventListener('install'");
   });

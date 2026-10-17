@@ -1,5 +1,5 @@
 // ChronosCampus Notice Decoder — Offline-First Service Worker
-const CACHE_NAME = 'chronoscampus-cache-v1';
+const CACHE_NAME = 'chronoscampus-cache-v2';
 
 const PRECACHE_ASSETS = [
   '/',
@@ -30,26 +30,44 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only intercept GET requests
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // Bypass API routes (handled by in-app hybrid coordinator circuit breaker)
-  if (url.pathname.startsWith('/api/')) return;
+  // Only handle same-origin HTTP/HTTPS requests
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+  if (url.origin !== self.location.origin) return;
 
+  // Bypass API routes and Next.js internal RSC data payloads
+  if (url.pathname.startsWith('/api/') || url.searchParams.has('_rsc')) return;
+
+  // 1. Navigation requests: Network-first with offline fallback
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/');
+          });
+        })
+    );
+    return;
+  }
+
+  // 2. Static assets (_next/static, fonts, icons, manifest): Cache-first
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Stale-while-revalidate for faster cached load
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {
-          // Offline, proceed with cached copy
-        });
         return cachedResponse;
       }
 
@@ -57,15 +75,15 @@ self.addEventListener('fetch', (event) => {
         if (!networkResponse || networkResponse.status !== 200) {
           return networkResponse;
         }
+
         const responseToCache = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseToCache);
         });
+
         return networkResponse;
       }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
+        return new Response(null, { status: 404 });
       });
     })
   );
