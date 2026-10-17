@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import React from "react";
 import { ErrorBoundary } from "@/src/components/common/ErrorBoundary";
+import { FileDropzone } from "@/src/components/workspace/FileDropzone";
 import { InputStudio } from "@/src/components/workspace/InputStudio";
 import { EditableGrid } from "@/src/components/workspace/EditableGrid";
 import { GanttTimeline } from "@/src/components/workspace/GanttTimeline";
@@ -67,7 +68,10 @@ export default function Home() {
 
         {/* Protected Workspace guarded by ErrorBoundary */}
         <ErrorBoundary>
-          {/* 1. Input Studio */}
+          {/* 1. Multi-Modal Document & Scanned Notice OCR Dropzone */}
+          <FileDropzone />
+
+          {/* 2. Text Input Studio */}
           <InputStudio />
 
           {/* 2. Editable Grid with Undo/Redo & ICS Export */}
