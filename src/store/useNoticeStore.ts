@@ -1,9 +1,11 @@
-﻿import { evaluateAllPairs, toMinutes as timeToMinutes, fromMinutes as timeFromMinutes } from "@/src/lib/clash/pairwiseEngine";
+import { evaluateAllPairs, toMinutes as timeToMinutes, fromMinutes as timeFromMinutes } from "@/src/lib/clash/pairwiseEngine";
+import { computeCompoundBusyBlocks, generateCompoundBusyInsights } from "@/src/lib/clash/compoundAnalyzer";
 import { create } from "zustand";
 import type {
   DecodedEvent,
   PairwiseClashResult,
   CompoundBusyBlock,
+  CompoundBusyInsight,
   ActionRecommendation,
   ViewMode,
 } from "@/src/types/notice";
@@ -31,6 +33,7 @@ export interface EngineResult {
   pairwiseClashes: PairwiseClashResult[];
   busyBlocks: CompoundBusyBlock[];
   recommendations: ActionRecommendation[];
+  compoundInsights: CompoundBusyInsight[];
 }
 
 export function runClashEngine(events: DecodedEvent[]): EngineResult {
@@ -198,73 +201,9 @@ export function runClashEngine(events: DecodedEvent[]): EngineResult {
     }
   }
 
-  // 2. Compound Busy Blocks via Sweep-Line solver
-  const busyBlocks: CompoundBusyBlock[] = [];
-  const dates = Array.from(new Set(validDated.map((e) => e.dateISO)));
-
-  for (const date of dates) {
-    const dayRanged = validDated.filter(
-      (e) => e.dateISO === date && e.type !== "Deadline" && e.endTime
-    );
-    const dayDeadlines = validDated.filter(
-      (e) => e.dateISO === date && e.type === "Deadline"
-    );
-
-    if (dayRanged.length === 0) continue;
-
-    // Sort intervals by startTime ascending
-    const sorted = [...dayRanged].sort(
-      (x, y) => toMinutes(x.startTime) - toMinutes(y.startTime)
-    );
-
-    let currentBlock: CompoundBusyBlock = {
-      dateISO: date,
-      mergedStart: sorted[0]!.startTime,
-      mergedEnd: sorted[0]!.endTime,
-      events: [sorted[0]!],
-      trappedDeadlines: [],
-    };
-
-    const mergedForDate: CompoundBusyBlock[] = [currentBlock];
-
-    for (let k = 1; k < sorted.length; k++) {
-      const ev = sorted[k]!;
-      const evStart = toMinutes(ev.startTime);
-      const evEnd = toMinutes(ev.endTime);
-      const currEnd = toMinutes(currentBlock.mergedEnd);
-
-      if (evStart <= currEnd) {
-        // Extend existing block
-        if (evEnd > currEnd) {
-          currentBlock.mergedEnd = ev.endTime;
-        }
-        currentBlock.events.push(ev);
-      } else {
-        // Disjoint window: start new block
-        currentBlock = {
-          dateISO: date,
-          mergedStart: ev.startTime,
-          mergedEnd: ev.endTime,
-          events: [ev],
-          trappedDeadlines: [],
-        };
-        mergedForDate.push(currentBlock);
-      }
-    }
-
-    // Attach trapped deadlines to merged blocks
-    for (const block of mergedForDate) {
-      const bStart = toMinutes(block.mergedStart);
-      const bEnd = toMinutes(block.mergedEnd);
-
-      block.trappedDeadlines = dayDeadlines.filter((dl) => {
-        const dlTime = toMinutes(dl.startTime);
-        return bStart <= dlTime && dlTime <= bEnd;
-      });
-
-      busyBlocks.push(block);
-    }
-  }
+  // 2. Compound Busy Blocks via Sweep-Line solver & True Last Free Window analysis
+  const busyBlocks = computeCompoundBusyBlocks(validDated);
+  const compoundInsights = generateCompoundBusyInsights(validDated);
 
   // 3. Automated Resolution Recommendations
   const recommendations: ActionRecommendation[] = [];
@@ -346,7 +285,7 @@ export function runClashEngine(events: DecodedEvent[]): EngineResult {
     }
   }
 
-  return { pairwiseClashes, busyBlocks, recommendations };
+  return { pairwiseClashes, busyBlocks, recommendations, compoundInsights };
 }
 
 // ── Zustand Store Contract ─────────────────────────────────────────────────
@@ -360,6 +299,7 @@ export interface NoticeStoreState {
   };
   pairwiseClashes: PairwiseClashResult[];
   busyBlocks: CompoundBusyBlock[];
+  compoundInsights: CompoundBusyInsight[];
   recommendations: ActionRecommendation[];
   selectedCohort: string;
   viewMode: ViewMode;
@@ -395,6 +335,7 @@ export const useNoticeStore = create<NoticeStoreState>()((set, get) => ({
   },
   pairwiseClashes: [],
   busyBlocks: [],
+  compoundInsights: [],
   recommendations: [],
   selectedCohort: "All",
   viewMode: "STUDENT",

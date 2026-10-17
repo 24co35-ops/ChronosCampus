@@ -56,6 +56,9 @@ describe("useNoticeStore - Reactive State & Instant Clash Resolution", () => {
 
     // Verify compound busy block created
     expect(state.busyBlocks.length).toBeGreaterThan(0);
+    expect(state.compoundInsights.length).toBeGreaterThan(0);
+    expect(state.compoundInsights[0]?.trappedDeadlines.length).toBe(1);
+    expect(state.compoundInsights[0]?.trappedDeadlines[0]?.trueLastFreeWindowEnd12h).toBe("10:00 AM");
   });
 
   it("updates event fields and triggers clash recalculation immediately", () => {

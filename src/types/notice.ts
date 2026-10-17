@@ -79,6 +79,49 @@ export interface CompoundBusyBlock {
   mergedEnd: string;
   events: DecodedEvent[];
   trappedDeadlines: DecodedEvent[];
+  durationMinutes?: number;
+  displayWindow?: string;
+}
+
+/**
+ * Trapped deadline detail explaining continuous commitment and True Last Free Window.
+ */
+export interface TrappedDeadlineDetail {
+  deadline: DecodedEvent;
+  deadlineId: string;
+  deadlineTitle: string;
+  deadlineTime: string;
+  deadlineTime12h: string;
+  venue: string;
+  busyBlock: CompoundBusyBlock;
+  busyBlockStart: string;
+  busyBlockStart12h: string;
+  busyBlockEnd: string;
+  busyBlockEnd12h: string;
+  busyBlockDurationMinutes: number;
+  eventsInBlock: DecodedEvent[];
+  naivePriorEvent?: DecodedEvent;
+  naiveFreeWindowEnd?: string;
+  naiveFreeWindowEnd12h?: string;
+  trueLastFreeWindowEnd: string;
+  trueLastFreeWindowEnd12h: string;
+  isCompoundTrapped: boolean;
+  explanation: string;
+  summary: string;
+}
+
+/**
+ * Structured compound busy insights for continuous academic commitments.
+ */
+export interface CompoundBusyInsight {
+  dateISO: string;
+  displayDate: string;
+  busyBlocks: CompoundBusyBlock[];
+  trappedDeadlines: TrappedDeadlineDetail[];
+  totalBusyMinutes: number;
+  continuousCommitmentWindow: string;
+  summary: string;
+  explanations: string[];
 }
 
 /**
