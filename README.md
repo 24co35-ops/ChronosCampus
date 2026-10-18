@@ -3,7 +3,7 @@
 > **Autonomous College Notice-to-Calendar Decoder, Mathematical Conflict Engine & Campus Schedule Defense Suite.**  
 > *Transforming chaotic university circulars into verified, conflict-free, synchronized academic schedules.*
 
-[![Test Suite: 35/35 Passed](https://img.shields.io/badge/Vitest-35%2F35%20Suites%20Passed%20(396%2F396)-emerald?style=for-the-badge&logo=vitest)](https://vitest.dev/)
+[![Test Suite: 46/46 Passed](https://img.shields.io/badge/Vitest-46%2F46%20Suites%20Passed%20(462%2F462)-emerald?style=for-the-badge&logo=vitest)](https://vitest.dev/)
 [![TypeScript: Strict 0 Errors](https://img.shields.io/badge/TypeScript-100%25%20Strict%20(0%20Errors)-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Next.js 16 Production Ready](https://img.shields.io/badge/Next.js-16.4.2%20App%20Router-black?style=for-the-badge&logo=nextdotjs)](https://nextjs.org/)
 [![Security: OWASP Hardened](https://img.shields.io/badge/Security-OWASP%20LLM01%20%2B%20CWE--93%2F1236%2F1333-rose?style=for-the-badge&logo=shield)](https://owasp.org/)
@@ -45,7 +45,7 @@ flowchart TD
     end
 
     subgraph CLASH ["3. Mathematical Collision Engine"]
-        H --> I[Pairwise Interval Engine: [S_i, E_i) Half-Open Rule]
+        H --> I["Pairwise Interval Engine: [S_i, E_i) Half-Open Rule"]
         I --> J[Compound Analyzer: Sweepline Busy-Block & Trapped Deadlines]
         I --> K[Transit Risk Engine: Campus Velocity & Inter-Venue Gaps]
         J --> L[1-Click Action Recommender & Gap-Finder Auto-Rescheduler]
@@ -121,7 +121,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🧪 Verification & Production Quality Audit
 
-ChronosCampus maintains a comprehensive test suite across 35 test files:
+ChronosCampus maintains a comprehensive test suite across 46 test files:
 
 ```bash
 # 1. Run all unit, integration, edge-case, and security tests
@@ -140,8 +140,8 @@ npm run build
   npx tsc --noEmit  -->  0 Errors (Clean Exit)
 
 ✓ Vitest Automated Test Suite:
-  Test Files: 35 passed (35)
-  Tests:      396 passed (396)
+  Test Files: 46 passed (46)
+  Tests:      462 passed (462)
   Duration:   ~16 seconds
 
 ✓ Production Build:
