@@ -147,6 +147,7 @@ export function NoticeInputStudio() {
   const [isAiRefining, setIsAiRefining] = useState(false);
   const [hybridResult, setHybridResult] = useState<HybridParseResult | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isTokenStripOpen, setIsTokenStripOpen] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -409,7 +410,7 @@ export function NoticeInputStudio() {
           </div>
         </div>
 
-        {/* ── Annotated Source Token Strip ──────────────────────────────────── */}
+                {/* ── Annotated Source Token Strip ──────────────────────────────────── */}
         {annotatedTokens.length > 0 && (
           <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 p-3 flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -417,45 +418,56 @@ export function NoticeInputStudio() {
                 <Code2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                 <span>Annotated Source Token Strip (Grounded NLP Spans)</span>
               </span>
-              <span className="text-[10px] font-mono text-zinc-400">
-                Click entity token to highlight
-              </span>
+              <div className="flex items-center gap-2.5">
+                <span className="hidden sm:inline text-[10px] font-mono text-zinc-400">
+                  Click token to highlight
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsTokenStripOpen(!isTokenStripOpen)}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition cursor-pointer"
+                >
+                  {isTokenStripOpen ? "Collapse ▲" : "Expand ▼"}
+                </button>
+              </div>
             </div>
 
-            <p className="text-xs font-mono leading-loose text-zinc-800 dark:text-zinc-200">
-              {annotatedTokens.map((tok, i) => {
-                if (!tok.isEntity) {
-                  return <span key={i}>{tok.text}</span>;
-                }
+            {isTokenStripOpen && (
+              <p className="text-xs font-mono leading-loose text-zinc-800 dark:text-zinc-200">
+                {annotatedTokens.map((tok, i) => {
+                  if (!tok.isEntity) {
+                    return <span key={i}>{tok.text}</span>;
+                  }
 
-                let style = "bg-zinc-500/10 text-zinc-800 dark:text-zinc-200 border-zinc-400";
-                if (tok.category === "Test") {
-                  style = "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/60";
-                } else if (tok.category === "Lecture") {
-                  style = "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/60";
-                } else if (tok.category === "Deadline") {
-                  style = "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/60";
-                } else if (tok.category === "Time") {
-                  style = "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/60";
-                } else if (tok.category === "Venue") {
-                  style = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/60";
-                }
+                  let style = "bg-zinc-500/10 text-zinc-800 dark:text-zinc-200 border-zinc-400";
+                  if (tok.category === "Test") {
+                    style = "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/60";
+                  } else if (tok.category === "Lecture") {
+                    style = "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/60";
+                  } else if (tok.category === "Deadline") {
+                    style = "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/60";
+                  } else if (tok.category === "Time") {
+                    style = "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/60";
+                  } else if (tok.category === "Venue") {
+                    style = "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/60";
+                  }
 
-                return (
-                  <span
-                    key={i}
-                    onClick={() => tok.eventId && setActiveHighlightedEventId(tok.eventId)}
-                    className={`inline-flex items-baseline gap-1 mx-0.5 px-1.5 py-0.5 rounded text-[11px] font-mono font-medium border-b-2 transition cursor-pointer hover:opacity-80 ${style}`}
-                    title={`${(tok.category || "Entity").toUpperCase()}: ${tok.text}`}
-                  >
-                    <span>{tok.text}</span>
-                    <span className="text-[9px] font-mono uppercase px-1 py-0.2 rounded font-bold opacity-80 border border-current">
-                      {(tok.category || "Entity").toUpperCase()}
+                  return (
+                    <span
+                      key={i}
+                      onClick={() => tok.eventId && setActiveHighlightedEventId(tok.eventId)}
+                      className={`inline-flex items-baseline gap-1 mx-0.5 px-1.5 py-0.5 rounded text-[11px] font-mono font-medium border-b-2 transition cursor-pointer hover:opacity-80 ${style}`}
+                      title={`${(tok.category || "Entity").toUpperCase()}: ${tok.text}`}
+                    >
+                      <span>{tok.text}</span>
+                      <span className="text-[9px] font-mono uppercase px-1 py-0.2 rounded font-bold opacity-80 border border-current">
+                        {(tok.category || "Entity").toUpperCase()}
+                      </span>
                     </span>
-                  </span>
-                );
-              })}
-            </p>
+                  );
+                })}
+              </p>
+            )}
           </div>
         )}
 

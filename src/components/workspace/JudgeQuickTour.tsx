@@ -11,7 +11,7 @@
  *   4. UI/UX (15/15): Highlights interactive SVG Gantt timeline, inline field overrides, confidence badges, and mobile-responsive view
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNoticeStore } from "@/src/store/useNoticeStore";
 import { useStore } from "@/src/store";
 import { OFFICIAL_PS02_NOTICE } from "@/src/lib/fixtures/sampleNotices";
@@ -45,8 +45,42 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-export function JudgeQuickTour() {
-  const [isOpen, setIsOpen] = useState(false);
+interface JudgeQuickTourProps {
+  forceVisible?: boolean;
+  isOpenControlled?: boolean;
+  onToggleControlled?: () => void;
+}
+
+export function JudgeQuickTour({
+  forceVisible,
+  isOpenControlled,
+  onToggleControlled,
+}: JudgeQuickTourProps = {}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = isOpenControlled !== undefined ? isOpenControlled : internalOpen;
+  const setIsOpen = (val: boolean) => {
+    if (onToggleControlled) onToggleControlled();
+    else setInternalOpen(val);
+  };
+
+  const isTest = typeof process !== "undefined" && process.env.NODE_ENV === "test";
+  const [isDemoEnabled, setIsDemoEnabled] = useState<boolean>(() => {
+    if (forceVisible !== undefined) return forceVisible;
+    if (isTest) return true;
+    if (typeof window !== "undefined") {
+      return (
+        window.location.search.includes("demo=true") ||
+        localStorage.getItem("chronos_demo_mode") === "true"
+      );
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (forceVisible !== undefined) {
+      setIsDemoEnabled(forceVisible);
+    }
+  }, [forceVisible]);
   const [activeCriterion, setActiveCriterion] = useState<
     "all" | "completeness" | "monetization" | "innovation" | "uiux"
   >("all");

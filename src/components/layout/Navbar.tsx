@@ -1,13 +1,12 @@
 "use client";
 
 /**
- * Navbar.tsx — ChronosCampus 48px Enterprise Command Bar
+ * Navbar.tsx — ChronosCampus Precision Enterprise Command Bar
  *
- * Implements:
- * 1. Compact 48px height (h-12) with border-b border-zinc-200 dark:border-zinc-800
- * 2. Left: Geometric SVG brand mark + "ChronosCampus" tracking-tight + "/" + "PS-02 Notice Decoder" badge
- * 3. Center: Segmented control pill with layoutId animation ("Student Workbench", "Admin ERP Validator", "Security Audit")
- * 4. Right: Monospace latency telemetry ("1.1ms • LOCAL AST"), shortcut trigger (?), theme toggle (Light/Dark), and primary .ics CTA
+ * Implements Linear/Vercel/Notion high-signal aesthetics:
+ * - Left: Logo + "ChronosCampus" + discreet breadcrumb + optional Home link
+ * - Center: Sleek segmented mode switcher (Student Workbench / Admin ERP / Security Audit)
+ * - Right: Compact status telemetry, Demo Tools toggle, Theme toggle, Primary Export .ics
  */
 
 import React, { useState, useEffect } from "react";
@@ -25,6 +24,8 @@ import {
   Moon,
   Menu,
   X,
+  SlidersHorizontal,
+  Home,
   CheckCircle2,
 } from "lucide-react";
 import { AlgorithmExplainerModal } from "@/src/components/workspace/AlgorithmExplainerModal";
@@ -33,7 +34,17 @@ import { useStore } from "@/src/store";
 import { generateIcs } from "@/src/lib/ics";
 import type { ViewMode } from "@/src/types/notice";
 
-export function Navbar() {
+interface NavbarProps {
+  onBackToLanding?: () => void;
+  isJudgeModeOpen?: boolean;
+  onToggleJudgeMode?: () => void;
+}
+
+export function Navbar({
+  onBackToLanding,
+  isJudgeModeOpen,
+  onToggleJudgeMode,
+}: NavbarProps = {}) {
   const viewMode = useNoticeStore((s) => s.viewMode);
   const setViewMode = useNoticeStore((s) => s.setViewMode);
   const pairwiseClashes = useNoticeStore((s) => s.pairwiseClashes);
@@ -113,23 +124,53 @@ export function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-40 h-12 bg-white/95 dark:bg-[#09090B]/95 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800 transition-colors">
+    <header className="sticky top-0 z-40 h-13 bg-white/90 dark:bg-[#09090B]/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 transition-colors">
       <div className="max-w-7xl mx-auto h-full px-3 sm:px-6 flex items-center justify-between gap-3">
-        {/* ── Left: Brand Mark + Name + Badge ─────────────────────────────── */}
+        {/* ── Left: Brand Mark + Name + Breadcrumb ────────────────────────── */}
         <div className="flex items-center gap-2.5 min-w-0 shrink-0">
-          <Link href="/" className="flex items-center gap-2 group">
-            <Logo variant="mark" size="sm" />
-            <span className="font-bold tracking-tight text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-700 dark:group-hover:text-zinc-300 transition">
-              ChronosCampus
-            </span>
-          </Link>
-          <span className="text-zinc-300 dark:text-zinc-700 text-sm select-none">/</span>
-          <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200/80 dark:border-zinc-700/80">
-            PS-02 Notice Decoder
-          </span>
+          {onBackToLanding ? (
+            <button
+              onClick={onBackToLanding}
+              className="flex items-center gap-2 group cursor-pointer text-left"
+              title="Return to Product Landing Page"
+            >
+              <Logo variant="mark" size="sm" />
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-bold tracking-tight text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-700 dark:group-hover:text-zinc-300 transition">
+                  ChronosCampus
+                </span>
+                <span className="text-[10px] font-mono text-zinc-400 font-normal hidden sm:inline">
+                  / studio
+                </span>
+              </div>
+            </button>
+          ) : (
+            <Link href="/" className="flex items-center gap-2 group">
+              <Logo variant="mark" size="sm" />
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-bold tracking-tight text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-700 dark:group-hover:text-zinc-300 transition">
+                  ChronosCampus
+                </span>
+                <span className="text-[10px] font-mono text-zinc-400 font-normal hidden sm:inline">
+                  / studio
+                </span>
+              </div>
+            </Link>
+          )}
+
+          {onBackToLanding && (
+            <button
+              onClick={onBackToLanding}
+              className="hidden lg:inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+              title="Back to Landing Page"
+            >
+              <Home className="w-3 h-3" />
+              <span>Overview</span>
+            </button>
+          )}
         </div>
 
-        {/* ── Center: Segmented Control Pill with Smooth Indicator ───────── */}
+        {/* ── Center: Segmented Control Pill ──────────────────────────────── */}
         <nav className="hidden md:flex items-center p-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 relative">
           {TABS.map((tab) => {
             const isActive = viewMode === tab.id;
@@ -164,22 +205,22 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* ── Right: Telemetry, Actions, Theme Toggle, Primary CTA ─────────── */}
+        {/* ── Right: Telemetry, Demo Mode, Theme, Primary Export ──────────── */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           {/* Latency Telemetry */}
           <div
             id="live-telemetry-pill"
-            className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-[11px] text-zinc-600 dark:text-zinc-400 font-mono tabular-nums tracking-tight"
+            className="hidden xl:flex items-center gap-1.5 px-2 py-0.5 rounded border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-[11px] text-zinc-600 dark:text-zinc-400 font-mono tabular-nums tracking-tight"
             title="Deterministic Temporal AST & Sweep-Line Algorithm Execution Time"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
             <span>1.1ms • LOCAL AST</span>
           </div>
 
-          {/* Network Status Badge */}
+          {/* Network Status Badge (Tested in pwaOffline.test.tsx) */}
           <div
             id="network-status-badge"
-            className="hidden xl:flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-mono tracking-tight"
+            className="hidden 2xl:flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-mono tracking-tight"
             title={isOnline ? "Online · Hybrid AI Ready" : "Offline · 100% Local Deterministic Core"}
           >
             <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-emerald-500" : "bg-amber-500"}`} />
@@ -191,27 +232,43 @@ export function Navbar() {
             </span>
           </div>
 
-          {/* Pitch Mode Link */}
-          <Link
-            id="pitch-mode-btn"
-            href="/pitch"
-            className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
-            title="Open 6-Slide Pitch Presentation"
-          >
-            <Presentation className="w-3.5 h-3.5" strokeWidth={1.75} />
-            <span>Pitch</span>
-          </Link>
-
           {/* Inspect Engine Logic */}
           <button
             id="inspect-engine-logic-btn"
             onClick={() => setIsExplainerOpen(true)}
-            className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+            className="hidden lg:inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
             title="Inspect 4-Step AST & Interval Engine Logic"
           >
             <Cpu className="w-3.5 h-3.5" strokeWidth={1.75} />
             <span>Inspect Engine Logic</span>
           </button>
+
+          {/* Pitch Mode Link */}
+          <Link
+            id="pitch-mode-btn"
+            href="/pitch"
+            className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+            title="Open Pitch Deck Presentation"
+          >
+            <Presentation className="w-3.5 h-3.5" strokeWidth={1.75} />
+            <span className="hidden md:inline">Pitch</span>
+          </Link>
+
+          {/* Judge & Demo Tools Toggle */}
+          {onToggleJudgeMode && (
+            <button
+              onClick={onToggleJudgeMode}
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono font-medium transition cursor-pointer border ${
+                isJudgeModeOpen
+                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 border-zinc-900 dark:border-zinc-100"
+                  : "bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 border-zinc-200/80 dark:border-zinc-700/80"
+              }`}
+              title="Toggle Judge Rubric & Demo Tools"
+            >
+              <SlidersHorizontal className="w-3 h-3" />
+              <span className="hidden sm:inline">Demo Kit</span>
+            </button>
+          )}
 
           {/* Presenter Hotkey Shortcut Trigger '?' */}
           <button
@@ -226,7 +283,7 @@ export function Navbar() {
             ?
           </button>
 
-          {/* Theme Toggle (Light Paper & Ink / Dark Carbon Obsidian) */}
+          {/* Theme Toggle */}
           <button
             id="theme-toggle-btn"
             onClick={toggleTheme}
@@ -300,6 +357,18 @@ export function Navbar() {
             );
           })}
           <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
+            {onBackToLanding && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onBackToLanding();
+                }}
+                className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>Product Home</span>
+              </button>
+            )}
             <Link
               href="/pitch"
               onClick={() => setMobileMenuOpen(false)}
@@ -316,7 +385,7 @@ export function Navbar() {
               className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400"
             >
               <Cpu className="w-3.5 h-3.5" />
-              <span>Inspect Engine Logic</span>
+              <span>Inspect Logic</span>
             </button>
           </div>
         </div>
