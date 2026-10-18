@@ -47,6 +47,7 @@ import {
   Smartphone,
   Eye,
   Code2,
+  RotateCcw,
 } from "lucide-react";
 import { WhatsAppSimulator } from "@/src/components/monetization/WhatsAppSimulator";
 
@@ -328,8 +329,18 @@ export function NoticeInputStudio() {
     <section className="bg-white dark:bg-[#121215] rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-2xs overflow-hidden flex flex-col">
       {/* ── IDE Top Toolbar ─────────────────────────────────────────────────── */}
       <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 flex flex-wrap items-center justify-between gap-3">
-        {/* Preset Selector Pills (Clean Monochrome) */}
-        <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Notice presets">
+        {/* Step 01 Badge & Preset Selector */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
+              01
+            </span>
+            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+              Paste College Notice
+            </h2>
+          </div>
+          {/* Preset Selector Pills (Clean Monochrome) */}
+          <div className="flex items-center gap-1.5 flex-wrap" role="group" aria-label="Notice presets">
           {PRESET_PILLS.map((preset) => {
             if (preset.id === "upload-pdf") {
               return (
@@ -374,6 +385,7 @@ export function NoticeInputStudio() {
             aria-hidden="true"
           />
         </div>
+        </div>
 
         {/* Live Monospace Counters & Status */}
         <div className="flex items-center gap-3">
@@ -409,6 +421,24 @@ export function NoticeInputStudio() {
             <span className="tabular-nums">{noticeText.length} characters</span>
           </div>
         </div>
+
+        {/* Empty State / Validation Guidance */}
+        {noticeText.trim() === "" && (
+          <div className="py-6 px-4 text-center rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20 text-zinc-500 dark:text-zinc-400 flex flex-col items-center justify-center gap-3">
+            <p className="text-xs font-mono">
+              No notice loaded. Paste messy notice text above or restore the official benchmark sample.
+            </p>
+            <button
+              id="restore-ps02-sample-btn"
+              type="button"
+              onClick={() => loadPreset(OFFICIAL_PS02_NOTICE)}
+              className="px-3.5 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restore PS-02 Sample</span>
+            </button>
+          </div>
+        )}
 
                 {/* ── Annotated Source Token Strip ──────────────────────────────────── */}
         {annotatedTokens.length > 0 && (

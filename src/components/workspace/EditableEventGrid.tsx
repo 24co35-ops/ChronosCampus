@@ -253,14 +253,29 @@ export function EditableEventGrid() {
   };
 
   const handleTypeChange = (id: string, currentStartTime: string, newType: EventType) => {
+    const ev = events.find((item) => item.id === id);
     if (newType === "Deadline") {
       updateEvent(id, {
         type: newType,
         endTime: currentStartTime,
       });
     } else {
-      updateEvent(id, { type: newType });
+      let newEndTime = ev?.endTime || currentStartTime;
+      if (newEndTime === currentStartTime) {
+        const parts = currentStartTime.split(":");
+        const h = parseInt(parts[0] || "12", 10);
+        const m = parseInt(parts[1] || "00", 10);
+        const total = Math.min(1439, h * 60 + m + 60);
+        const nh = String(Math.floor(total / 60)).padStart(2, "0");
+        const nm = String(total % 60).padStart(2, "0");
+        newEndTime = `${nh}:${nm}`;
+      }
+      updateEvent(id, { type: newType, endTime: newEndTime });
     }
+  };
+
+  const handleSwapTimes = (id: string, start: string, end: string) => {
+    updateEvent(id, { startTime: end, endTime: start });
   };
 
   const handleStartTimeChange = (event: ReviewedEvent, newStart: string) => {
@@ -285,18 +300,23 @@ export function EditableEventGrid() {
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121215] overflow-hidden flex flex-col shadow-xs">
         {/* Top Header & Linear/Airtable Grid Toolbar */}
         <div className="p-4 sm:px-5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-                Interactive Event Review & Correction Grid
-              </h2>
-              <span className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
-                {events.length} Events
-              </span>
+          <div className="flex items-center gap-2.5">
+            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
+              02
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+                  Review & Fix Detected Events
+                </h2>
+                <span className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                  {events.length} Events
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                Automatic detection can be wrong — click any field to edit before export
+              </p>
             </div>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Tactile inline-editable data cells. Hover to reveal pencil, click to edit. All edits sync bi-directionally.
-            </p>
           </div>
 
           {/* Grid Toolbar Actions */}
@@ -588,11 +608,19 @@ export function EditableEventGrid() {
                           </span>
                         </div>
 
-                        {/* Instant Validation Warning */}
+                        {/* Instant Validation Warning & 1-Click Swap */}
                         {hasTimeInversion && (
-                          <div className="flex items-center gap-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
                             <AlertTriangle className="w-3 h-3 shrink-0" />
-                            <span>End time is before start time</span>
+                            <span>End time before start</span>
+                            <button
+                              type="button"
+                              onClick={() => handleSwapTimes(e.id, e.startTime, e.endTime)}
+                              className="px-1.5 py-0.2 rounded bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 border border-rose-500/30 transition cursor-pointer text-[9px] font-mono"
+                              title="Swap start and end times"
+                            >
+                              Swap Start/End
+                            </button>
                           </div>
                         )}
                       </div>

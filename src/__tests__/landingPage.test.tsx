@@ -53,12 +53,12 @@ describe("LandingPage & Interactive Preview — Linear/Vercel Aesthetic", () => 
     expect(screen.getByText("Mathematical Collision Detection")).toBeDefined();
 
     // Pricing
-    expect(screen.getByText("STUDENT EDITION")).toBeDefined();
-    expect(screen.getByText("DEPARTMENT SAAS")).toBeDefined();
-    expect(screen.getByText("CAMPUS ENTERPRISE")).toBeDefined();
+    expect(screen.getByText("Student Web Decoder")).toBeDefined();
+    expect(screen.getByText("Student Pro Pass")).toBeDefined();
+    expect(screen.getByText("Campus ERP Governance License")).toBeDefined();
     expect(screen.getByText("₹0")).toBeDefined();
-    expect(screen.getByText("₹15")).toBeDefined();
-    expect(screen.getByText("₹45")).toBeDefined();
+    expect(screen.getByText("₹49")).toBeDefined();
+    expect(screen.getByText("₹45,000")).toBeDefined();
   });
 
   it("invokes onOpenApp callback when Launch Studio CTAs are clicked", () => {

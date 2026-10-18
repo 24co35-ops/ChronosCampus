@@ -364,32 +364,36 @@ export function LandingPage({ onOpenApp, onLoadSample }: LandingPageProps) {
         </div>
       </section>
 
-      {/* ── Pricing Teaser ────────────────────────────────────────────────── */}
+      {/* ── Pricing & Monetization Section ─────────────────────────────────── */}
       <section id="pricing" className="py-16 sm:py-24 border-b border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-[#0c0c0e]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16">
             <h2 className="text-xs font-mono uppercase tracking-widest text-zinc-500 dark:text-zinc-400 font-semibold mb-2">
-              B2B Monetization & Campus Tiers
+              B2B2C Monetization & Unit Economics
             </h2>
             <h3 className="text-2xl sm:text-3xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
               Predictable pricing for students and institutions.
             </h3>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              Free forever for individual students. Enterprise SaaS licenses for universities and departmental coordinators.
+              Free forever for individual students via client-side AST. Enterprise SaaS licenses for universities and departmental coordinators.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {/* Free Student */}
+            {/* Tier 01: Student Web Decoder */}
             <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-[#121215] flex flex-col justify-between">
               <div>
-                <span className="text-xs font-mono text-zinc-500">STUDENT EDITION</span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono text-zinc-500">STUDENT EDITION</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">FREE FOREVER</span>
+                </div>
+                <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Student Web Decoder</h4>
                 <div className="mt-3 flex items-baseline gap-1">
                   <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">₹0</span>
                   <span className="text-xs text-zinc-500">/ forever</span>
                 </div>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 mb-6">
-                  For individual university students decoding circulars and tracking exam dates.
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 mb-6 leading-relaxed">
+                  Viral bottom-up adoption across class WhatsApp groups; ₹0.00 server compute cost via client-side deterministic AST parsing.
                 </p>
                 <ul className="space-y-2.5 text-xs text-zinc-700 dark:text-zinc-300">
                   <li className="flex items-center gap-2">
@@ -398,7 +402,7 @@ export function LandingPage({ onOpenApp, onLoadSample }: LandingPageProps) {
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>100% Offline deterministic AST</span>
+                    <span>100% Offline deterministic AST (₹0.00 compute)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -411,43 +415,48 @@ export function LandingPage({ onOpenApp, onLoadSample }: LandingPageProps) {
                 </ul>
               </div>
               <button
+                id="open-student-decoder-btn"
                 onClick={onOpenApp}
                 className="mt-6 w-full py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition cursor-pointer"
               >
-                Use Free Student Studio
+                Open Free Student Decoder
               </button>
             </div>
 
-            {/* Department Tier */}
+            {/* Tier 02: Student Pro Pass */}
             <div className="p-6 rounded-2xl border-2 border-zinc-900 dark:border-zinc-100 bg-white dark:bg-[#121215] flex flex-col justify-between relative shadow-lg">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[10px] font-mono font-bold bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">
-                RECOMMENDED
+                MOST POPULAR
               </div>
               <div>
-                <span className="text-xs font-mono text-zinc-500">DEPARTMENT SAAS</span>
-                <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">₹15</span>
-                  <span className="text-xs text-zinc-500">/ student / year</span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono text-zinc-500">STUDENT PRO PASS</span>
+                  <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">B2C SUBSCRIPTION</span>
                 </div>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 mb-6">
-                  For engineering and medical departments scheduling complex internal tests and guest lectures.
+                <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Student Pro Pass</h4>
+                <div className="mt-3 flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">₹49</span>
+                  <span className="text-xs text-zinc-500">/ semester</span>
+                </div>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 mb-6 leading-relaxed">
+                  Automated WhatsApp Forward Bot (@ChronosCampusBot) + morning exam wake-up call alerts + personal timetable memory.
                 </p>
                 <ul className="space-y-2.5 text-xs text-zinc-700 dark:text-zinc-300">
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Everything in Student</span>
+                    <span>Everything in Student Web Decoder</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Faculty Pre-Publish Clash Blocker</span>
+                    <span>WhatsApp Forward Bot (@ChronosCampusBot)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Live Webcal subscription feed</span>
+                    <span>Morning exam wake-up alerts</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Campus Transit & Venue collision engine</span>
+                    <span>Personal timetable memory & Webcal sync</span>
                   </li>
                 </ul>
               </div>
@@ -455,33 +464,44 @@ export function LandingPage({ onOpenApp, onLoadSample }: LandingPageProps) {
                 onClick={onOpenApp}
                 className="mt-6 w-full py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-xs font-semibold text-white dark:text-zinc-900 transition cursor-pointer shadow-xs"
               >
-                Launch Department Sandbox
+                Upgrade to Pro Pass
               </button>
             </div>
 
-            {/* Enterprise Campus */}
-            <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-[#121215] flex flex-col justify-between">
+            {/* Tier 03: Campus ERP Governance License */}
+            <div className="p-6 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-[#121215] flex flex-col justify-between relative">
+              <div className="absolute -top-3 right-6 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
+                ENTERPRISE B2B
+              </div>
               <div>
-                <span className="text-xs font-mono text-zinc-500">CAMPUS ENTERPRISE</span>
-                <div className="mt-3 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">₹45</span>
-                  <span className="text-xs text-zinc-500">/ student / year</span>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-mono text-zinc-500">CAMPUS ENTERPRISE</span>
+                  <span className="text-[10px] font-mono text-zinc-400">ANNUAL B2B</span>
                 </div>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 mb-6">
-                  For entire universities seeking automated ERP timetable synchronization and webhook integration.
+                <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Campus ERP Governance License</h4>
+                <div className="mt-3 flex items-baseline gap-1">
+                  <span className="text-3xl font-bold text-zinc-900 dark:text-zinc-100">₹45,000</span>
+                  <span className="text-xs text-zinc-500">/ year per college</span>
+                </div>
+                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-2 mb-6 leading-relaxed">
+                  Pre-publish clash validation API & dashboard for Exam Cells and Training & Placement (T&P) officers before notices broadcast.
                 </p>
                 <ul className="space-y-2.5 text-xs text-zinc-700 dark:text-zinc-300">
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Everything in Department</span>
+                    <span>Everything in Pro campus-wide</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>University ERP Webhooks (SAP / Canvas)</span>
+                    <span>Pre-publish clash validation API (POST /api/v1/erp)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span>Automated WhatsApp broadcasting bot</span>
+                    <span>Exam Cell & T&P Governance Dashboard</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>University ERP Webhooks (SAP / Canvas / Moodle)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -490,12 +510,33 @@ export function LandingPage({ onOpenApp, onLoadSample }: LandingPageProps) {
                 </ul>
               </div>
               <button
+                id="launch-b2b-sandbox-btn"
                 onClick={onOpenApp}
                 className="mt-6 w-full py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition cursor-pointer"
               >
-                Contact Campus Sales
+                Launch Live B2B Sandbox
               </button>
             </div>
+          </div>
+
+          {/* Unit Economics Callout */}
+          <div className="mt-10 p-5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-[#121215] max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                UNIT ECONOMICS
+              </span>
+              <p className="text-zinc-600 dark:text-zinc-400">
+                <strong className="text-zinc-900 dark:text-zinc-100">Free Tier:</strong> ₹0.00 server cost (client-side AST) •{" "}
+                <strong className="text-zinc-900 dark:text-zinc-100">Pro Pass:</strong> ₹49/sem covers WhatsApp API + ~60% margin •{" "}
+                <strong className="text-zinc-900 dark:text-zinc-100">Campus License:</strong> ₹45,000/yr ÷ 3,000 students = ~₹15/student/year
+              </p>
+            </div>
+            <button
+              onClick={onOpenApp}
+              className="shrink-0 text-xs font-mono font-semibold text-zinc-900 dark:text-zinc-100 hover:underline cursor-pointer"
+            >
+              View Financial Model →
+            </button>
           </div>
         </div>
       </section>
